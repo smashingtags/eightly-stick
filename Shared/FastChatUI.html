@@ -138,14 +138,20 @@ body{
 .hw-pct.danger{color:var(--red);}
 #hw-offline{font-size:11px;color:var(--text-d);}
 
-/* System prompt toggle */
 #sys-prompt-btn{
   background:none;border:1px solid var(--border);
   color:var(--text-m);font-size:11px;padding:3px 9px;
   border-radius:6px;cursor:pointer;white-space:nowrap;
-  transition:var(--trans);
+  transition:var(--trans);position:relative;
 }
 #sys-prompt-btn:hover{border-color:var(--accent);color:var(--accent-hi);}
+#sys-prompt-btn.has-global{border-color:var(--accent);color:var(--accent-hi);}
+#sys-global-dot{
+  position:absolute;top:-3px;right:-3px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);display:none;
+  box-shadow:0 0 4px var(--accent);
+}
 
 /* ── App layout ────────────────────────────────────────── */
 #app{
@@ -224,18 +230,46 @@ body{
   background:var(--bg-panel);
   padding:10px 16px;
   display:none;
+  flex-direction:column;
+  gap:7px;
 }
-#sys-panel.open{display:flex;align-items:flex-start;gap:10px;}
+#sys-panel.open{display:flex;}
+#sys-panel .sys-row{
+  display:flex;align-items:flex-start;gap:10px;
+}
 #sys-panel label{font-size:12px;color:var(--text-d);padding-top:6px;white-space:nowrap;}
 #sys-ta{
   flex:1;background:var(--bg-input);
   border:1px solid var(--border);
   color:var(--text);font-size:13px;
   border-radius:var(--radius);padding:6px 10px;
-  resize:none;height:60px;font-family:inherit;
+  resize:none;height:54px;font-family:inherit;
   line-height:1.5;
 }
 #sys-ta:focus{outline:none;border-color:var(--accent);}
+#sys-actions{
+  display:flex;align-items:center;gap:8px;
+  padding-left:72px;
+}
+#sys-actions button{
+  font-size:11px;padding:4px 12px;
+  border-radius:5px;cursor:pointer;
+  white-space:nowrap;transition:var(--trans);
+  font-family:inherit;
+}
+#set-global-btn{
+  border:1px solid var(--accent);background:none;
+  color:var(--accent-hi);
+}
+#set-global-btn:hover{background:rgba(99,102,241,0.12);}
+#clear-global-btn{
+  border:1px solid var(--border);background:none;
+  color:var(--text-d);
+}
+#clear-global-btn:hover{border-color:var(--red);color:var(--red);}
+#global-status{
+  font-size:11px;color:var(--text-d);margin-left:4px;
+}
 
 /* Loading overlay */
 #load-overlay{
@@ -490,7 +524,7 @@ body{
   <span class="top-label">Temp</span>
   <input type="number" id="temp-input" value="0.7" min="0" max="2" step="0.1">
   <div class="top-divider"></div>
-  <button id="sys-prompt-btn" onclick="toggleSysPanel()">⚙ System Prompt</button>
+  <button id="sys-prompt-btn" onclick="toggleSysPanel()">⚙ System Prompt<span id="sys-global-dot"></span></button>
 
   <!-- Hardware stats -->
   <div id="hw-bar">
@@ -533,8 +567,15 @@ body{
 
     <!-- System prompt panel -->
     <div id="sys-panel">
-      <label>System Prompt</label>
-      <textarea id="sys-ta" placeholder="Optional system instructions for the AI…"></textarea>
+      <div class="sys-row">
+        <label>System Prompt</label>
+        <textarea id="sys-ta" placeholder="Type a system prompt… applies to this chat"></textarea>
+      </div>
+      <div id="sys-actions">
+        <button id="set-global-btn" onclick="saveGlobalPrompt()" title="Apply to ALL future new chats">Set Global</button>
+        <button id="clear-global-btn" onclick="clearGlobalPrompt()" title="Remove global default">Clear Global</button>
+        <span id="global-status"></span>
+      </div>
     </div>
 
     <!-- Loading overlay -->
@@ -606,6 +647,7 @@ let attachImgB64  = null;
 let attachImgMime = null;
 let attachPdfText = null;
 let attachPdfName = null;
+let globalSystemPrompt = '';
 
 // ── Persistence ──────────────────────────────────────────
 async function loadChats() {
@@ -626,7 +668,8 @@ function saveChats() {
 // ── Chat list ─────────────────────────────────────────────
 function newChat() {
   const id = Date.now().toString();
-  allChats.unshift({ id, title:'New Chat', model:'', systemPrompt:'', messages:[] });
+  // New chats inherit the global system prompt automatically
+  allChats.unshift({ id, title:'New Chat', model:'', systemPrompt: globalSystemPrompt, messages:[] });
   saveChats();
   renderList();
   switchChat(id);
@@ -808,6 +851,92 @@ function setBar(type, pct) {
   bar.style.transform = `scaleX(${Math.max(0,Math.min(100,pct))/100})`;
   lbl.textContent = pct + '%';
   lbl.className = 'hw-pct' + (pct>=90?' danger':pct>=70?' warn':'');
+}
+
+// ── Global system prompt ─────────────────────────────────
+// ── Global system prompt (saved to USB via /api/settings) ───────
+async function loadGlobalPrompt() {
+  if (IS_SERVED) {
+    try {
+      const r = await fetch('/api/settings');
+      if (r.ok) {
+        const s = await r.json();
+        globalSystemPrompt = s.globalSystemPrompt || '';
+      }
+    } catch {}
+  } else {
+    // Fallback: localStorage when opened as a file directly
+    globalSystemPrompt = localStorage.getItem('globalSystemPrompt') || '';
+  }
+  updateGlobalIndicator();
+  // Also show status if already active
+  if (globalSystemPrompt) {
+    const status = document.getElementById('global-status');
+    if (status) { status.textContent = '(active for all new chats)'; }
+  }
+}
+async function saveGlobalPrompt() {
+  const val = document.getElementById('sys-ta').value.trim();
+  globalSystemPrompt = val;
+  updateGlobalIndicator();
+  const status = document.getElementById('global-status');
+  try {
+    if (IS_SERVED) {
+      // Load existing settings first so we don't overwrite other keys
+      let existing = {};
+      try { const r = await fetch('/api/settings'); if (r.ok) existing = await r.json(); } catch {}
+      existing.globalSystemPrompt = val;
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing)
+      });
+    } else {
+      localStorage.setItem('globalSystemPrompt', val);
+    }
+    status.textContent = val ? '✓ Saved to USB!' : '✓ Cleared';
+    status.style.color = 'var(--green)';
+  } catch {
+    status.textContent = '⚠ Save failed';
+    status.style.color = 'var(--red)';
+  }
+  setTimeout(() => { status.textContent = globalSystemPrompt ? '(active for all new chats)' : ''; status.style.color = ''; }, 2000);
+}
+async function clearGlobalPrompt() {
+  globalSystemPrompt = '';
+  updateGlobalIndicator();
+  const status = document.getElementById('global-status');
+  try {
+    if (IS_SERVED) {
+      let existing = {};
+      try { const r = await fetch('/api/settings'); if (r.ok) existing = await r.json(); } catch {}
+      existing.globalSystemPrompt = '';
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing)
+      });
+    } else {
+      localStorage.removeItem('globalSystemPrompt');
+    }
+    status.textContent = '✓ Cleared';
+    status.style.color = 'var(--red)';
+  } catch {}
+  setTimeout(() => { status.textContent = ''; status.style.color = ''; }, 2000);
+}
+
+function updateGlobalIndicator() {
+  const btn = document.getElementById('sys-prompt-btn');
+  const dot = document.getElementById('sys-global-dot');
+  if (globalSystemPrompt) {
+    btn.classList.add('has-global');
+    dot.style.display = 'block';
+    btn.title = 'Global prompt active: ' + globalSystemPrompt.substring(0, 60) + (globalSystemPrompt.length > 60 ? '…' : '');
+  } else {
+    btn.classList.remove('has-global');
+    dot.style.display = 'none';
+    btn.title = '';
+  }
 }
 
 // ── System prompt panel ──────────────────────────────────
@@ -1062,6 +1191,7 @@ function stopGen() { if (abortCtrl) abortCtrl.abort(); }
 // ── Init ─────────────────────────────────────────────────
 (async () => {
   setupMarked();
+  await loadGlobalPrompt();    // restore global system prompt from USB (settings.json)
   await loadChats();
   await fetchModels();
   renderList();
