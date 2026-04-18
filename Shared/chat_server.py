@@ -31,9 +31,11 @@ try:
 except ImportError:
     HAS_PSUTIL = False
 
-# ── Configuration ──────────────────────────────────────────────
-CHAT_SERVER_PORT = 3333
-OLLAMA_HOST = "http://127.0.0.1:11434"
+# Configuration
+# Eight.ly Stick runs on :11438 by default so it doesn't collide with any
+# existing Ollama install. Honor ELY_OLLAMA_URL / CHAT_SERVER_PORT env vars.
+CHAT_SERVER_PORT = int(os.environ.get("ELY_CHAT_PORT", "3333"))
+OLLAMA_HOST = os.environ.get("ELY_OLLAMA_URL", "http://127.0.0.1:11438")
 LLAMA_CPP_MODE = "--llama-cpp" in sys.argv
 if LLAMA_CPP_MODE:
     OLLAMA_HOST = "http://127.0.0.1:8080"
