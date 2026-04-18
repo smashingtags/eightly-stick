@@ -45,13 +45,14 @@ Curated GGUFs, Q4_K_M quantization, all from trusted uploaders (bartowski, Munge
 | Phi-3.5 Mini 3.8B | 2.2 GB | Lightweight reasoning. |
 | Dolphin 2.9 Llama 3 8B | 4.9 GB | Balanced uncensored. |
 | Qwen3 8B Abliterated | 5.2 GB | Smart. Replaces the fake "Qwen 3.5" in the old repo. |
-| Gemma 3n E4B Abliterated (Huihui) | 4.2 GB | MatFormer architecture. Replaces the fake "Gemma 4" in the old repo. |
-| Gemma 4 E2B HauhauCS Aggressive | 2.4 GB | **Apple Silicon only** - requires Ollama 0.21+ MLX runtime |
-| Gemma 4 E4B HauhauCS Aggressive | 4.5 GB | **Apple Silicon only** - multimodal (text/image/video/audio) |
-| Gemma 4 E4B TrevorJS abliterated | 4.5 GB | **Apple Silicon only** - expert-granular abliteration |
+| Gemma 3n E4B Abliterated (Huihui) | 4.2 GB | MatFormer architecture. |
+| Gemma 4 E2B TrevorJS abliterated | 3.2 GB | Apple Silicon (Metal/MLX) or Intel Arc (llama.cpp SYCL). |
+| Gemma 4 E2B HauhauCS Aggressive | 2.4 GB | Apple Silicon or Intel Arc. Multimodal-ready GGUF. |
+| Gemma 4 E4B HauhauCS Aggressive | 4.5 GB | Apple Silicon or Intel Arc. Multimodal (text/image/video/audio). |
+| Gemma 4 E4B TrevorJS abliterated | 4.5 GB | Apple Silicon or Intel Arc. Expert-granular abliteration. |
 | NemoMix Unleashed 12B | 7.5 GB | Heavyweight. Needs 16 GB RAM. |
 
-Gemma 4 models are Apple Silicon only for now because Intel's IPEX-LLM build still targets Ollama 0.9.3 (pre-Gemma 4 architecture support). When IPEX-LLM ships a newer nightly, these models will light up on Arc too.
+Gemma 4 models route through upstream llama.cpp SYCL on Intel Arc (Eight.ly Stick auto-installs it as a secondary engine) and through stock Ollama v0.21's MLX runtime on Apple Silicon. IPEX-LLM's Ollama fork doesn't yet ship the gemma4 architecture, so on Arc we load Gemma 4 via the llama.cpp sidecar at :11441 and keep Ollama on :11438 for everything else.
 
 ## Folder layout
 
@@ -86,7 +87,7 @@ Start it on your laptop, then on your phone hit `http://<laptop-ip>:3333`. The c
 
 - **Slow on Windows + Arc.** Run `Windows\diagnose.bat`. If throughput is under 25 tok/s on Gemma 2B, your Arc driver is probably stale - update from https://intel.com/arc-drivers and rerun.
 - **"Engine offline" in the UI footer.** The chat server can't reach `:11438`. Either `start.bat` hasn't finished booting the engine yet, or an old engine process is wedged - run `taskkill /f /im ollama.exe` and rerun start.
-- **Gemma 4 fails to load.** Expected on Intel Arc until IPEX-LLM ships a newer nightly. On macOS, make sure you're on the latest install (which pins Ollama v0.21.0 for MLX Gemma 4 support).
+- **Gemma 4 fails to load.** On Intel Arc you need the llama.cpp sidecar installed (automatic when you pick a Gemma 4 model in the installer) and listening on :11441 - check `diagnose.bat` or `netstat -ano | findstr 11441`. On macOS make sure Ollama is v0.21+; older versions predate the MLX Gemma 4 runtime.
 - **Port conflict on :11434 or :3333.** Eight.ly Stick deliberately uses `:11438` for the engine to avoid your existing Ollama install. If you have another chat UI on `:3333`, edit `start.bat`'s `ELY_CHAT_PORT`.
 
 ## Credits

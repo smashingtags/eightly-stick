@@ -10,6 +10,10 @@ $SharedDir = Join-Path $Root 'Shared'
 $StatePath = Join-Path $SharedDir 'install-state.json'
 $CatalogPath = Join-Path $SharedDir 'catalog.json'
 
+# Port used by the benchmark - isolated from runtime (:11438) and install (:11439).
+$DiagPort = if ($env:ELY_DIAG_PORT) { [int]$env:ELY_DIAG_PORT } else { 11440 }
+$DiagBase = "http://127.0.0.1:$DiagPort"
+
 function H1 { param($T) Write-Host ''; Write-Host ('=' * 58) -ForegroundColor Cyan; Write-Host ('  ' + $T) -ForegroundColor Cyan; Write-Host ('=' * 58) -ForegroundColor Cyan }
 function KV { param($K,$V) Write-Host ('  {0,-20} {1}' -f $K, $V) }
 
@@ -66,7 +70,7 @@ Start-Sleep 2
 $envMap = @{}
 $catalog.backends.($state.backend).env.PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value }
 $envMap['OLLAMA_MODELS'] = (Join-Path $SharedDir 'models\ollama_data')
-$envMap['OLLAMA_HOST']   = '127.0.0.1:11440'
+$envMap['OLLAMA_HOST']   = "127.0.0.1:$DiagPort"
 
 $backendDir = Join-Path $SharedDir "bin\$($state.backend)"
 $job = Start-Job -ScriptBlock {
@@ -79,7 +83,7 @@ $job = Start-Job -ScriptBlock {
 Start-Sleep 6
 $up = $false
 for ($i = 0; $i -lt 15; $i++) {
-    try { if ((Invoke-WebRequest 'http://127.0.0.1:11440/api/tags' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) { $up = $true; break } } catch {}
+    try { if ((Invoke-WebRequest "$DiagBase/api/tags" -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) { $up = $true; break } } catch {}
     Start-Sleep 1
 }
 if (-not $up) {
@@ -93,11 +97,11 @@ $modelId = ($installed | Select-Object -First 1).id
 if (-not $modelId) { Write-Host '  No models installed.' -ForegroundColor Red; Stop-Job $job; exit 4 }
 
 $warm = @{ model = $modelId; prompt = 'Hi'; stream = $false; options = @{ num_predict = 8 } } | ConvertTo-Json
-try { $null = Invoke-RestMethod 'http://127.0.0.1:11440/api/generate' -Method Post -Body $warm -ContentType 'application/json' -TimeoutSec 180 } catch {}
+try { $null = Invoke-RestMethod "$DiagBase/api/generate" -Method Post -Body $warm -ContentType 'application/json' -TimeoutSec 180 } catch {}
 
 $body = @{ model = $modelId; prompt = 'Write 100 words about the future of portable AI.'; stream = $false; options = @{ num_predict = 100; temperature = 0.7 } } | ConvertTo-Json
 try {
-    $r = Invoke-RestMethod 'http://127.0.0.1:11440/api/generate' -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 180
+    $r = Invoke-RestMethod "$DiagBase/api/generate" -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 180
     $evalMs = [math]::Round($r.eval_duration / 1000000)
     $tps = if ($evalMs -gt 0) { [math]::Round($r.eval_count * 1000.0 / $evalMs, 2) } else { 0 }
     KV 'Model tested'   $modelId

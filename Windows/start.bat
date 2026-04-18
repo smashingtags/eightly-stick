@@ -2,9 +2,21 @@
 setlocal EnableDelayedExpansion
 title Eight.ly Stick
 
+REM Ports - override via env before launch if needed
+if not defined ELY_RUNTIME_PORT  set "ELY_RUNTIME_PORT=11438"
+if not defined ELY_LLAMACPP_PORT set "ELY_LLAMACPP_PORT=11441"
+if not defined ELY_CHAT_PORT     set "ELY_CHAT_PORT=3333"
+if not defined ELY_INSTALL_PORT  set "ELY_INSTALL_PORT=11439"
+
 set "ROOT=%~dp0.."
 set "SHARED=%ROOT%\Shared"
 set "STATE=%SHARED%\install-state.json"
+
+REM Kill any orphans from a failed prior install that never tore down the
+REM install-time ollama on ELY_INSTALL_PORT.
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%ELY_INSTALL_PORT% " ^| findstr "LISTENING"') do (
+    taskkill /f /pid %%P >nul 2>&1
+)
 
 cls
 echo.
@@ -23,14 +35,9 @@ if not exist "%STATE%" (
     exit /b 1
 )
 
+REM Read all state fields in a single PowerShell call, emitted as SET commands.
 for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
-    "$s = Get-Content -Raw '%STATE%' | ConvertFrom-Json; Write-Output $s.backend"`) do set "BACKEND=%%i"
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
-    "$s = Get-Content -Raw '%STATE%' | ConvertFrom-Json; Write-Output $s.entrypoint"`) do set "ENTRY=%%i"
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
-    "$s = Get-Content -Raw '%STATE%' | ConvertFrom-Json; Write-Output $s.backendLabel"`) do set "BACKEND_LABEL=%%i"
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
-    "$s = Get-Content -Raw '%STATE%' | ConvertFrom-Json; Write-Output $s.gpu"`) do set "GPU=%%i"
+    "$s = ConvertFrom-Json (Get-Content -Raw '%STATE%'); 'set BACKEND=' + $s.backend; 'set ENTRY=' + $s.entrypoint; 'set BACKEND_LABEL=' + $s.backendLabel; 'set GPU=' + $s.gpu"`) do (%%i)
 
 set "ENTRY_FULL=%ROOT%\%ENTRY%"
 set "BACKEND_DIR=%SHARED%\bin\%BACKEND%"
@@ -50,21 +57,21 @@ REM Apply backend-specific env vars from catalog.json
 for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
     "$c = Get-Content -Raw '%SHARED%\catalog.json' | ConvertFrom-Json; $e = $c.backends.'%BACKEND%'.env; $e.PSObject.Properties | %% { 'set ' + $_.Name + '=' + $_.Value }"`) do (%%i)
 
-REM Eight.ly Stick uses :11438 so it never collides with a user's existing
-REM Ollama install (stock Ollama defaults to :11434, WSL often relays 11434).
+REM Eight.ly Stick uses ELY_RUNTIME_PORT (default :11438) so it never collides
+REM with a user's existing Ollama install (stock Ollama defaults to :11434,
+REM WSL often relays 11434).
 set "OLLAMA_MODELS=%SHARED%\models\ollama_data"
-set "OLLAMA_HOST=127.0.0.1:11438"
+set "OLLAMA_HOST=127.0.0.1:%ELY_RUNTIME_PORT%"
 set "OLLAMA_ORIGINS=*"
-set "ELY_OLLAMA_URL=http://127.0.0.1:11438"
-set "ELY_CHAT_PORT=3333"
+set "ELY_OLLAMA_URL=http://127.0.0.1:%ELY_RUNTIME_PORT%"
 
-curl -s http://127.0.0.1:11438/api/tags >nul 2>&1
+curl -s http://127.0.0.1:%ELY_RUNTIME_PORT%/api/tags >nul 2>&1
 if %ERRORLEVEL%==0 (
-    echo   [OK] Engine already running on :11438.
+    echo   [OK] Engine already running on :%ELY_RUNTIME_PORT%.
     goto :START_CHAT
 )
 
-echo   Starting engine on :11438 ...
+echo   Starting engine on :%ELY_RUNTIME_PORT% ...
 pushd "%BACKEND_DIR%"
 start "" /b "%ENTRY_FULL%" serve
 popd
@@ -72,7 +79,7 @@ popd
 set /a WAIT=0
 :WAIT_LOOP
 timeout /t 1 /nobreak >nul
-curl -s http://127.0.0.1:11438/api/tags >nul 2>&1
+curl -s http://127.0.0.1:%ELY_RUNTIME_PORT%/api/tags >nul 2>&1
 if %ERRORLEVEL%==0 goto :ENGINE_UP
 set /a WAIT+=1
 if %WAIT% GEQ 30 (
@@ -98,15 +105,15 @@ for /f "tokens=1,2 delims=~" %%a in ("%LLAMACPP_SPEC%") do (
 set "LLAMACPP_DIR=%SHARED%\bin\windows-intel-llamacpp"
 set "LLAMACPP_GGUF=%SHARED%\models\!LLAMACPP_MODEL_FILE!"
 echo.
-echo   Starting secondary engine ^(llama-server SYCL^) on :11441
+echo   Starting secondary engine ^(llama-server SYCL^) on :%ELY_LLAMACPP_PORT%
 echo     model: !LLAMACPP_MODEL_ID!
 pushd "!LLAMACPP_DIR!"
-start "" /b "!LLAMACPP_DIR!\llama-server.exe" -m "!LLAMACPP_GGUF!" -ngl 999 --host 127.0.0.1 --port 11441 --ctx-size 4096 --jinja --reasoning-format none
+start "" /b "!LLAMACPP_DIR!\llama-server.exe" -m "!LLAMACPP_GGUF!" -ngl 999 --host 127.0.0.1 --port %ELY_LLAMACPP_PORT% --ctx-size 4096 --jinja --reasoning-format none
 popd
 set /a WAIT2=0
 :WAIT_LLAMACPP
 timeout /t 1 /nobreak >nul
-curl -s http://127.0.0.1:11441/health >nul 2>&1
+curl -s http://127.0.0.1:%ELY_LLAMACPP_PORT%/health >nul 2>&1
 if !ERRORLEVEL!==0 goto :LLAMACPP_UP
 set /a WAIT2+=1
 if !WAIT2! GEQ 90 (
@@ -116,7 +123,7 @@ if !WAIT2! GEQ 90 (
 goto :WAIT_LLAMACPP
 :LLAMACPP_UP
 echo   [OK] Secondary engine online.
-set "ELY_LLAMACPP_URL=http://127.0.0.1:11441"
+set "ELY_LLAMACPP_URL=http://127.0.0.1:%ELY_LLAMACPP_PORT%"
 set "ELY_LLAMACPP_MODEL_ID=!LLAMACPP_MODEL_ID!"
 :AFTER_LLAMACPP
 
@@ -148,7 +155,7 @@ echo   Python: %PYTHON_CMD%
 echo.
 echo   ========================================================
 echo      Eight.ly Stick is running.
-echo      Chat UI:  http://localhost:3333
+echo      Chat UI:  http://localhost:%ELY_CHAT_PORT%
 echo      Close this window to shut down.
 echo   ========================================================
 echo.

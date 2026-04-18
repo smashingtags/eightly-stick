@@ -12,6 +12,9 @@ $OllamaData  = Join-Path $ModelsDir 'ollama_data'
 $CatalogPath = Join-Path $SharedDir 'catalog.json'
 $StateFile   = Join-Path $SharedDir 'install-state.json'
 
+# Private install-time port, isolated from runtime (:11438) and diagnostic (:11440).
+$InstallPort = if ($env:ELY_INSTALL_PORT) { [int]$env:ELY_INSTALL_PORT } else { 11439 }
+
 New-Item -ItemType Directory -Force -Path $BinDir,$ModelsDir,$OllamaData | Out-Null
 
 function Write-Banner { param([string]$T,[string]$C='Cyan')
@@ -23,6 +26,19 @@ function Write-Step { param([string]$N,[string]$T) Write-Host ("[$N] $T") -Foreg
 function Write-Ok   { param([string]$T) Write-Host ("     [OK] $T") -ForegroundColor Green }
 function Write-Fail { param([string]$T) Write-Host ("     [X]  $T") -ForegroundColor Red }
 function Write-Info { param([string]$T) Write-Host ("       $T") -ForegroundColor DarkGray }
+
+function New-Modelfile {
+    param($m, [string]$modelsDir)
+    $path = Join-Path $modelsDir ("Modelfile-" + $m.id)
+    $sys  = $m.systemPrompt -replace '"','\"'
+    @(
+        "FROM ./$($m.file)",
+        "PARAMETER temperature $($m.params.temperature)",
+        "PARAMETER top_p $($m.params.top_p)",
+        "SYSTEM `"$sys`""
+    ) | Set-Content -Path $path -Encoding UTF8
+    $path
+}
 
 if (-not (Test-Path $CatalogPath)) { Write-Fail "Missing catalog.json at $CatalogPath"; exit 2 }
 $Catalog = Get-Content $CatalogPath -Raw | ConvertFrom-Json
@@ -205,7 +221,7 @@ Start-Sleep 2
 $envMap = @{}
 $backend.env.PSObject.Properties | ForEach-Object { $envMap[$_.Name] = $_.Value }
 $envMap['OLLAMA_MODELS'] = $OllamaData
-$envMap['OLLAMA_HOST']   = '127.0.0.1:11439'
+$envMap['OLLAMA_HOST']   = "127.0.0.1:$InstallPort"
 $envMap.GetEnumerator() | ForEach-Object { Set-Item -Path "env:$($_.Key)" -Value $_.Value }
 
 $serveJob = Start-Job -ScriptBlock {
@@ -219,7 +235,7 @@ Start-Sleep 6
 $up = $false
 for ($i = 0; $i -lt 20; $i++) {
     try {
-        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:11439/api/tags' -UseBasicParsing -TimeoutSec 2
+        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$InstallPort/api/tags" -UseBasicParsing -TimeoutSec 2
         if ($r.StatusCode -eq 200) { $up = $true; break }
     } catch {}
     Start-Sleep 1
@@ -241,30 +257,15 @@ foreach ($m in $selected) {
     $eng = $modelEngine[$m.id]
     if (-not $eng) { Write-Info "Skip $($m.name) - no compatible engine"; continue }
 
+    $mfPath = New-Modelfile $m $ModelsDir
+
     # llama.cpp engines don't have an Ollama registry - just record the GGUF + Modelfile
     if ($eng -ne $backendKey) {
-        $mfPath = Join-Path $ModelsDir ("Modelfile-" + $m.id)
-        $sys = $m.systemPrompt -replace '"','\"'
-        @(
-            "FROM ./$($m.file)",
-            "PARAMETER temperature $($m.params.temperature)",
-            "PARAMETER top_p $($m.params.top_p)",
-            "SYSTEM `"$sys`""
-        ) | Set-Content -Path $mfPath -Encoding UTF8
         Write-Ok "$($m.name) -> $eng (GGUF placed, llama-server will load at start)"
         $imported += $m
         $importedEngine[$m.id] = $eng
         continue
     }
-
-    $mfPath = Join-Path $ModelsDir ("Modelfile-" + $m.id)
-    $sys = $m.systemPrompt -replace '"','\"'
-    @(
-        "FROM ./$($m.file)",
-        "PARAMETER temperature $($m.params.temperature)",
-        "PARAMETER top_p $($m.params.top_p)",
-        "SYSTEM `"$sys`""
-    ) | Set-Content -Path $mfPath -Encoding UTF8
 
     Push-Location $ModelsDir
     Write-Info "Creating $($m.id)..."
@@ -279,7 +280,7 @@ foreach ($m in $selected) {
     }
 
     try {
-        $tags = Invoke-RestMethod -Uri 'http://127.0.0.1:11439/api/tags' -TimeoutSec 5
+        $tags = Invoke-RestMethod -Uri "http://127.0.0.1:$InstallPort/api/tags" -TimeoutSec 5
         if (($tags.models | Where-Object { $_.name -match "^$($m.id):" })) {
             Write-Ok "$($m.name) registered"
             $imported += $m
@@ -301,12 +302,12 @@ if ($imported.Count -gt 0) {
 
     Write-Info "Warming up $($testModel.id) (first Intel run JIT-compiles SYCL kernels)..."
     $warm = @{ model = $testModel.id; prompt = 'Hi'; stream = $false; options = @{ num_predict = 8 } } | ConvertTo-Json
-    try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:11439/api/generate' -Method Post -Body $warm -ContentType 'application/json' -TimeoutSec 180 } catch {}
+    try { $null = Invoke-RestMethod -Uri "http://127.0.0.1:$InstallPort/api/generate" -Method Post -Body $warm -ContentType 'application/json' -TimeoutSec 180 } catch {}
 
     Write-Info 'Timed 100-token generation...'
     $body = @{ model = $testModel.id; prompt = 'Write 100 words about the future of portable AI.'; stream = $false; options = @{ num_predict = 100; temperature = 0.7 } } | ConvertTo-Json
     try {
-        $r = Invoke-RestMethod -Uri 'http://127.0.0.1:11439/api/generate' -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 180
+        $r = Invoke-RestMethod -Uri "http://127.0.0.1:$InstallPort/api/generate" -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 180
         $evalMs = [math]::Round($r.eval_duration / 1000000)
         $smokeTps = if ($evalMs -gt 0) { [math]::Round($r.eval_count * 1000.0 / $evalMs, 2) } else { 0 }
         Write-Ok ("Throughput: {0} tok/s  ({1} tokens in {2} ms)" -f $smokeTps, $r.eval_count, $evalMs)
