@@ -487,21 +487,17 @@ echo.
 echo   !BOLD!Provider!RESET! : !GREEN!!PROVIDER_NAME!!RESET!
 echo   !BOLD!Model!RESET!    : !GREEN!!AI_DISPLAY_MODEL!!RESET!
 echo   !BOLD!Data!RESET!     : !DIM!Portable Mode (No PC Leaks)!RESET!
-if "!LOCAL_ENGINES_UP!"=="1" (
-    echo.
-    echo   !BOLD!Chat UI!RESET!  : !GREEN!http://localhost:3333!RESET!  !DIM!(uncensored local models)!RESET!
-    echo   !BOLD!Dashboard!RESET!: !GREEN!http://localhost:3000!RESET!  !DIM!(OpenClaude web UI)!RESET!
-)
+if "%LOCAL_ENGINES_UP%"=="1" echo.
+if "%LOCAL_ENGINES_UP%"=="1" echo   Chat UI  : http://localhost:3333  (uncensored local models)
+if "%LOCAL_ENGINES_UP%"=="1" echo   Dashboard: http://localhost:3000  (OpenClaude web UI)
 echo.
 echo !CYAN!=========================================================!RESET!
 echo.
 
 :prompt_launch_mode
 REM Quick mode: skip menu, go straight to limitless
-if !QUICK_MODE!==1 (
-    echo   !RED!!BOLD!QUICK LAUNCH - Limitless Mode!RESET!
-    goto launch_limitless
-)
+if !QUICK_MODE!==1 echo   !RED!!BOLD!QUICK LAUNCH - Limitless Mode!RESET!
+if !QUICK_MODE!==1 goto launch_limitless
 echo   !BOLD!Select Launch Mode:!RESET!
 echo   !CYAN!1)!RESET! !GREEN!Normal Mode!RESET!    !DIM!- Confirms before running commands!RESET!
 echo   !CYAN!2)!RESET! !RED!Limitless Mode!RESET! !DIM!- Auto-executes everything (Advanced)!RESET!
