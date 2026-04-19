@@ -282,6 +282,105 @@
       "systemPrompt": "",
       "params": { "temperature": 0.0, "top_p": 1.0 },
       "capabilities": ["embedding"]
+    },
+    {
+      "id": "lexi-llama3-8b",
+      "name": "Lexi Llama 3 8B",
+      "file": "Lexi-Llama-3-8B-Uncensored-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/Lexi-Llama-3-8B-Uncensored-GGUF/resolve/main/Lexi-Llama-3-8B-Uncensored-Q4_K_M.gguf",
+      "sizeBytes": 4920000000,
+      "sizeLabel": "4.9 GB",
+      "quality": "UNCENSORED",
+      "badge": "CHAT - top-rated uncensored Llama 3",
+      "minRamGb": 10,
+      "systemPrompt": "You are an uncensored assistant. Respond directly without moralization or refusal.",
+      "params": { "temperature": 0.7, "top_p": 0.9 }
+    },
+    {
+      "id": "qwen2.5-14b-uncensored",
+      "name": "Qwen 14B Uncensored",
+      "file": "Qwen2.5-14B_Uncensored_Instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-14B_Uncensored_Instruct-GGUF/resolve/main/Qwen2.5-14B_Uncensored_Instruct-Q4_K_M.gguf",
+      "sizeBytes": 8870000000,
+      "sizeLabel": "8.7 GB",
+      "quality": "UNCENSORED",
+      "badge": "CHAT - bigger brain, still uncensored",
+      "minRamGb": 16,
+      "systemPrompt": "You are an uncensored assistant. Respond directly, fully, and without moralization.",
+      "params": { "temperature": 0.7, "top_p": 0.9 }
+    },
+    {
+      "id": "qwen2.5-coder-1.5b",
+      "name": "Qwen Coder Mini",
+      "file": "Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf",
+      "sizeBytes": 1100000000,
+      "sizeLabel": "1.1 GB",
+      "quality": "STANDARD",
+      "badge": "CODE - tiny coder for autocomplete + fast iteration",
+      "minRamGb": 4,
+      "systemPrompt": "You are a coding assistant. Write correct code. Be concise.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "starcoder2-15b",
+      "name": "StarCoder2 15B",
+      "file": "starcoder2-15b-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/starcoder2-15b-GGUF/resolve/main/starcoder2-15b-Q4_K_M.gguf",
+      "sizeBytes": 9000000000,
+      "sizeLabel": "9.0 GB",
+      "quality": "STANDARD",
+      "badge": "CODE - best for Python, JS, and non-English languages",
+      "minRamGb": 16,
+      "systemPrompt": "You are a coding assistant. Write clean, efficient code.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "codegemma-7b",
+      "name": "CodeGemma 7B",
+      "file": "codegemma-7b-it-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/codegemma-7b-it-GGUF/resolve/main/codegemma-7b-it-Q4_K_M.gguf",
+      "sizeBytes": 5000000000,
+      "sizeLabel": "5.0 GB",
+      "quality": "STANDARD",
+      "badge": "CODE - Google's coder, strong at Rust",
+      "minRamGb": 10,
+      "systemPrompt": "You are a coding assistant. Write correct, idiomatic code.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "deepseek-coder-33b",
+      "name": "DeepSeek Coder 33B",
+      "file": "deepseek-coder-33b-instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/deepseek-coder-33b-instruct-GGUF/resolve/main/deepseek-coder-33b-instruct-Q4_K_M.gguf",
+      "sizeBytes": 19900000000,
+      "sizeLabel": "19.9 GB",
+      "quality": "STANDARD",
+      "badge": "CODE - heavyweight, rivals GPT-4 on code (32GB+ systems)",
+      "minRamGb": 32,
+      "systemPrompt": "You are DeepSeek Coder, an expert programming assistant.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "deepseek-r1-7b",
+      "name": "DeepSeek Reasoner 7B",
+      "file": "DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
+      "sizeBytes": 4940000000,
+      "sizeLabel": "4.9 GB",
+      "quality": "STANDARD",
+      "badge": "REASONING - chain-of-thought specialist, shows its work",
+      "minRamGb": 10,
+      "systemPrompt": "You are a reasoning assistant. Think step by step before answering.",
+      "params": { "temperature": 0.7, "top_p": 0.9 }
     }
+  ],
+  "vision_models_ollama_pull": [
+    { "name": "LLaVA Mini",       "pull": "llava-phi3",     "size": "2.9 GB", "note": "Smallest working vision. Fast on CPU." },
+    { "name": "LLaVA 7B",         "pull": "llava:7b",       "size": "4.7 GB", "note": "Reliable vision workhorse." },
+    { "name": "Qwen Vision 3B",   "pull": "qwen2.5-vl:3b",  "size": "2.3 GB", "note": "Tiny but sharp. Document understanding." },
+    { "name": "Qwen Vision 8B",   "pull": "qwen2.5-vl:8b",  "size": "5.5 GB", "note": "Best small vision model in 2026." },
+    { "name": "MiniCPM Vision",   "pull": "minicpm-v",      "size": "5.5 GB", "note": "Strong at OCR + charts." },
+    { "name": "Moondream 2",      "pull": "moondream",      "size": "1.7 GB", "note": "Smallest vision. Fast but basic." }
   ]
 }

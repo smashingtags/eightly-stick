@@ -318,6 +318,18 @@ if /I "!INSTALL_VSCODE!"=="Y" (
 )
 :skip_vscode
 
+:: ─── Step 8: Extensions + Coding CLIs ───────────────────────
+echo.
+echo !CYAN!---------------------------------------------------------!RESET!
+echo   !BOLD!Installing Extensions + Coding Tools!RESET!
+echo !CYAN!---------------------------------------------------------!RESET!
+echo.
+echo   Installing VS Code extensions (Continue, Cline, Claude Code,
+echo   Python, GitLens, Prettier, ESLint) and coding CLIs (Codex,
+echo   Claude Code CLI, Aider). All pre-configured for your stick.
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%USB_ROOT%install-extensions.ps1"
+
 :: ─── Installation Summary ────────────────────────────────────
 
 :: Get installed OpenClaude version

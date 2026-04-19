@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "continue.continue",
+    "saoudrizwan.claude-dev",
+    "anthropic.claude-code",
+    "ms-python.python",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint"
+  ]
+}

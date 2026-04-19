@@ -1,0 +1,42 @@
+{
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'Cascadia Code', 'Fira Code', Consolas, monospace",
+  "editor.minimap.enabled": false,
+  "editor.wordWrap": "on",
+  "editor.bracketPairColorization.enabled": true,
+  "workbench.colorTheme": "Default Dark Modern",
+  "terminal.integrated.fontSize": 13,
+
+  "continue.enableTabAutocomplete": true,
+  "continue.telemetryEnabled": false,
+
+  "continue.models": [
+    {
+      "title": "Local Ollama (GPU)",
+      "provider": "ollama",
+      "model": "AUTODETECT",
+      "apiBase": "http://localhost:11438"
+    }
+  ],
+
+  "continue.tabAutocompleteModel": {
+    "title": "Qwen Coder Mini (local)",
+    "provider": "ollama",
+    "model": "qwen2.5-coder:1.5b",
+    "apiBase": "http://localhost:11438"
+  },
+
+  "cline.ollamaUrl": "http://localhost:11438",
+  "cline.ollamaModels": ["gemma2-2b", "qwen2.5-coder:7b", "deepseek-coder-v2-lite"],
+
+  "python.defaultInterpreterPath": "${workspaceFolder}/Windows/bin/python/python.exe",
+
+  "files.exclude": {
+    "**/Shared/bin": true,
+    "**/Shared/models": true,
+    "**/Shared/tools": true,
+    "**/tools/vscode": true,
+    "**/.git": true,
+    "**/node_modules": true
+  }
+}
