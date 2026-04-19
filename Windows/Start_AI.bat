@@ -75,14 +75,11 @@ set "LOCAL_STATE=%SHARED_DIR%\install-state.json"
 set "LOCAL_ENGINES_UP=0"
 if exist "%LOCAL_STATE%" (
     echo   !CYAN![~] Booting local AI engines...!RESET!
-    :: Use our existing start.bat engine-boot logic by calling it.
-    :: start.bat boots Ollama on :11438, llama.cpp on :11441, chat_server on :3333.
-    :: We start it minimized so it doesn't steal the terminal.
+    REM start.bat boots Ollama on :11438, llama.cpp on :11441, chat_server on :3333
     start "Local AI Engines" /MIN cmd /c "%USB_ROOT%start.bat"
     set "LOCAL_ENGINES_UP=1"
-    :: Give engines a moment to bind ports.
     timeout /t 5 /nobreak >nul
-    echo   !GREEN![OK] Local engines starting (chat UI at http://localhost:3333)!RESET!
+    echo   !GREEN![OK] Local engines starting - chat UI at http://localhost:3333!RESET!
     echo.
 )
 
