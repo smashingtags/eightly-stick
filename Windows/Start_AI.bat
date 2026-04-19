@@ -60,20 +60,21 @@ for %%A in (%*) do (
 
 if !SKIP_UPDATE!==1 (
     echo   !DIM![~] Offline mode - skipping update check!RESET!
-) else (
-    echo   !YELLOW![~] Checking for engine updates...!RESET!
-    pushd "%BIN_DIR%"
-    set "PATH=%NODE_DIR%;%PATH%"
-    call npm.cmd outdated @gitlawb/openclaude >nul 2>&1
-    if errorlevel 1 (
-        echo   !YELLOW![~] New version detected! Upgrading...!RESET!
-        call npm.cmd install @gitlawb/openclaude@latest --no-audit --no-fund --loglevel=error >nul 2>&1
-        echo   !GREEN![OK] Engine upgraded to latest version!!RESET!
-    ) else (
-        echo   !GREEN![OK] Engine is up to date!!RESET!
-    )
-    popd
+    goto update_done
 )
+echo   !YELLOW![~] Checking for engine updates...!RESET!
+pushd "%BIN_DIR%"
+set "PATH=%NODE_DIR%;%PATH%"
+call npm.cmd outdated @gitlawb/openclaude >nul 2>&1
+if errorlevel 1 (
+    echo   !YELLOW![~] New version available. Upgrading...!RESET!
+    call npm.cmd install @gitlawb/openclaude@latest --no-audit --no-fund --loglevel=error >nul 2>&1
+    echo   !GREEN![OK] Engine upgraded!RESET!
+) else (
+    echo   !GREEN![OK] Engine is up to date!RESET!
+)
+popd
+:update_done
 echo.
 
 :: ─── Boot Local AI Engines (if installed) ─────────────────
