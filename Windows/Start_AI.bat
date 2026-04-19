@@ -494,6 +494,9 @@ echo.
 echo !CYAN!=========================================================!RESET!
 echo.
 
+REM Auto-open the chat UI in the default browser so the user sees something immediately
+if "%LOCAL_ENGINES_UP%"=="1" start "" http://localhost:3333
+
 :prompt_launch_mode
 REM Quick mode: skip menu, go straight to limitless
 if !QUICK_MODE!==1 echo   !RED!!BOLD!QUICK LAUNCH - Limitless Mode!RESET!
