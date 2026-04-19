@@ -1,0 +1,141 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════
+#  Portable AI USB - First Time Setup (macOS)
+# ═══════════════════════════════════════════════════════════
+
+set -e
+
+CYAN='\033[36m'; GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'
+DIM='\033[90m'; BOLD='\033[1m'; RESET='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BIN_DIR="$SCRIPT_DIR/bin"
+DATA_DIR="$ROOT_DIR/data"
+
+# Clear macOS quarantine on all scripts (needed when downloaded from internet)
+xattr -cr "$SCRIPT_DIR" 2>/dev/null || true
+
+echo ""
+echo -e "${CYAN}    ____            __        __    __        ___    ____${RESET}"
+echo -e "${CYAN}   / __ \\____  ____/ /_____ _/ /_  / /__     /   |  /  _/${RESET}"
+echo -e "${CYAN}  / /_/ / __ \\/ __/ __/ __ \`/ __ \\/ / _ \\   / /| |  / /  ${RESET}"
+echo -e "${CYAN} / ____/ /_/ / / / /_/ /_/ / /_/ / /  __/  / ___ |_/ /   ${RESET}"
+echo -e "${CYAN}/_/    \\____/_/  \\__/\\__,_/_.___/_/\\___/  /_/  |_/___/   ${RESET}"
+echo ""
+echo -e "${CYAN}=========================================================${RESET}"
+echo -e "  ${BOLD}Claude Code - Open Source Setup${RESET}"
+echo -e "${CYAN}=========================================================${RESET}"
+echo ""
+echo "  This will download the AI Engine and Core Files"
+echo "  directly to this folder so it can run entirely offline."
+echo ""
+
+# ─── Internet Check ──────────────────────────────────────────
+echo -e "  ${YELLOW}[~] Checking internet connectivity...${RESET}"
+if ! curl -s --connect-timeout 5 https://nodejs.org > /dev/null 2>&1; then
+    echo -e "  ${RED}[ERROR] No internet connection detected!${RESET}"
+    exit 1
+fi
+echo -e "  ${GREEN}[OK] Internet connection verified!${RESET}"
+echo ""
+
+# ─── Disk Space Check ────────────────────────────────────────
+echo -e "  ${YELLOW}[~] Checking available disk space...${RESET}"
+FREE_MB=$(df -m "$SCRIPT_DIR" 2>/dev/null | awk 'NR==2{print $4}')
+if [ "$FREE_MB" -lt 150 ] 2>/dev/null; then
+    echo -e "  ${RED}[ERROR] Not enough disk space! Available: ${FREE_MB} MB${RESET}"
+    exit 1
+fi
+echo -e "  ${GREEN}[OK] Disk space OK: ${FREE_MB} MB available${RESET}"
+echo ""
+
+# ─── Architecture Detection ──────────────────────────────────
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)  NODE_ARCH="x64" ;;
+    arm64)   NODE_ARCH="arm64" ;;
+    *)       echo -e "  ${RED}[ERROR] Unsupported architecture: $ARCH${RESET}"; exit 1 ;;
+esac
+
+# ─── System Tools Check ─────────────────────────────────────
+echo -e "  ${YELLOW}[DIAGNOSTIC] Host System Pre-Check:${RESET}"
+HAS_GIT=0; HAS_PYTHON=0
+if command -v git &>/dev/null; then HAS_GIT=1; echo -e "  - Git:    ${GREEN}[FOUND]${RESET}"; else echo -e "  - Git:    ${RED}[MISSING]${RESET} ${DIM}(xcode-select --install)${RESET}"; fi
+if command -v python3 &>/dev/null; then HAS_PYTHON=1; echo -e "  - Python: ${GREEN}[FOUND]${RESET}"; else echo -e "  - Python: ${RED}[MISSING]${RESET} ${DIM}(brew install python3)${RESET}"; fi
+echo -e "  - Arch:   ${GREEN}${ARCH} (${NODE_ARCH})${RESET}"
+echo ""
+
+# ─── Variables ───────────────────────────────────────────────
+NODE_VERSION="22.14.0"
+NODE_TARBALL="node-v${NODE_VERSION}-darwin-${NODE_ARCH}.tar.gz"
+NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TARBALL}"
+NODE_DIR="$BIN_DIR/node-v${NODE_VERSION}-darwin-${NODE_ARCH}"
+
+STEP=1; TOTAL_STEPS=2
+
+mkdir -p "$BIN_DIR" "$DATA_DIR"
+
+echo -e "${CYAN}---------------------------------------------------------${RESET}"
+echo -e "  ${BOLD}Starting Installation...${RESET}"
+echo -e "${CYAN}---------------------------------------------------------${RESET}"
+echo ""
+
+# ─── Download Node.js ────────────────────────────────────────
+if [ -f "$NODE_DIR/bin/node" ]; then
+    echo -e "  ${GREEN}[${STEP}/${TOTAL_STEPS}] Portable Node.js ... already installed [SKIP]${RESET}"
+else
+    echo -e "  ${CYAN}[${STEP}/${TOTAL_STEPS}] Downloading Portable Node.js (~25MB)...${RESET}"
+    DL_OK=0
+    for attempt in 1 2 3; do
+        [ $attempt -gt 1 ] && echo -e "  ${YELLOW}  [~] Retry attempt ${attempt}/3...${RESET}"
+        if curl -# -L -o "$BIN_DIR/$NODE_TARBALL" "$NODE_URL"; then DL_OK=1; break; fi
+    done
+    [ $DL_OK -eq 0 ] && echo -e "  ${RED}[FATAL] Failed to download Node.js!${RESET}" && exit 1
+
+    echo -e "  ${CYAN}  Extracting...${RESET}"
+    tar xf "$BIN_DIR/$NODE_TARBALL" -C "$BIN_DIR"
+    rm -f "$BIN_DIR/$NODE_TARBALL"
+
+    [ ! -f "$NODE_DIR/bin/node" ] && echo -e "  ${RED}[FATAL] Extraction failed!${RESET}" && exit 1
+
+    # Clear macOS quarantine flags
+    echo -e "  ${CYAN}  Removing macOS quarantine flags...${RESET}"
+    xattr -cr "$BIN_DIR" 2>/dev/null || true
+
+    echo -e "  ${GREEN}  [OK] Node.js installed successfully!${RESET}"
+fi
+STEP=$((STEP+1)); echo ""
+
+# ─── Install OpenClaude Engine ───────────────────────────────
+echo -e "  ${CYAN}[${STEP}/${TOTAL_STEPS}] Installing OpenClaude Engine...${RESET}"
+export PATH="$NODE_DIR/bin:$PATH"
+cd "$BIN_DIR"
+[ ! -f "$BIN_DIR/package.json" ] && npm init -y > /dev/null 2>&1
+npm install @gitlawb/openclaude --no-audit --no-fund --loglevel=error
+[ $? -ne 0 ] && echo -e "  ${RED}[FATAL] Installation failed!${RESET}" && exit 1
+echo -e "  ${GREEN}  [OK] OpenClaude engine installed!${RESET}"
+echo ""
+
+# ─── Summary ─────────────────────────────────────────────────
+NODE_VER=$("$NODE_DIR/bin/node" -v 2>/dev/null || echo "unknown")
+OC_VER=$(grep '"version"' "$BIN_DIR/node_modules/@gitlawb/openclaude/package.json" 2>/dev/null | head -1 | sed 's/.*"\(.*\)".*/\1/' || echo "unknown")
+BIN_SIZE=$(du -shm "$BIN_DIR" 2>/dev/null | awk '{print $1}')
+
+echo -e "${CYAN}=========================================================${RESET}"
+echo -e "  ${GREEN}${BOLD}[DONE] Setup Complete!${RESET}"
+echo -e "${CYAN}=========================================================${RESET}"
+echo ""
+echo -e "  ${BOLD}Installation Summary:${RESET}"
+echo -e "  ${CYAN}-------------------------------------------------${RESET}"
+echo -e "  Node.js      : ${GREEN}${NODE_VER}${RESET}"
+echo -e "  OpenClaude   : ${GREEN}v${OC_VER}${RESET}"
+echo -e "  Architecture : ${GREEN}${ARCH} (${NODE_ARCH})${RESET}"
+echo -e "  ${CYAN}-------------------------------------------------${RESET}"
+echo -e "  Total Size   : ${YELLOW}${BIN_SIZE} MB${RESET}"
+echo ""
+
+echo ""
+echo -e "  To launch the AI, type this in the terminal and press Enter:"
+echo -e "  ${GREEN}${BOLD}bash start_ai.sh${RESET}"
+echo ""
