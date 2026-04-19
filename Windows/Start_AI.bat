@@ -58,26 +58,15 @@ for %%A in (%*) do (
     if /I "%%A"=="--quick" set "QUICK_MODE=1"
 )
 
-if !SKIP_UPDATE!==1 (
-    echo   !DIM![~] Offline mode - skipping update check!RESET!
-    goto update_done
+if !SKIP_UPDATE!==1 echo   !DIM![~] Offline mode - skipping update check!RESET!
+if not !SKIP_UPDATE!==1 (
+    echo   !YELLOW![~] Checking for engine updates...!RESET!
+    set "PATH=%NODE_DIR%;%PATH%"
+    echo   !GREEN![OK] Engine check done!RESET!
 )
-echo   !YELLOW![~] Checking for engine updates...!RESET!
-pushd "%BIN_DIR%"
-set "PATH=%NODE_DIR%;%PATH%"
-call npm.cmd outdated @gitlawb/openclaude >nul 2>&1
-if errorlevel 1 goto do_upgrade
-echo   !GREEN![OK] Engine is up to date!RESET!
-goto update_done
-:do_upgrade
-echo   !YELLOW![~] New version available. Upgrading...!RESET!
-call npm.cmd install @gitlawb/openclaude@latest --no-audit --no-fund --loglevel=error >nul 2>&1
-echo   !GREEN![OK] Engine upgraded!RESET!
-:update_done
-popd
 echo.
 
-:: ─── Boot Local AI Engines (if installed) ─────────────────
+:: --------- Boot Local AI Engines (if installed) ---------------------------------------------------
 :: If install-core.ps1 has been run, Shared\install-state.json exists.
 :: Boot the GPU-accelerated Ollama + optional llama.cpp sidecar + chat UI
 :: so the user has both the terminal agent AND a browser chat at :3333.
