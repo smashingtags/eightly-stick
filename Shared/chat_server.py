@@ -52,6 +52,55 @@ CHATS_FILE = os.path.join(CHATS_DIR, "chats.json")
 SETTINGS_FILE = os.path.join(CHATS_DIR, "settings.json")
 HTML_FILE = os.path.join(SCRIPT_DIR, "FastChatUI.html")
 
+_SAVE_DEBOUNCE_SECONDS = float(os.environ.get("ELY_SAVE_DEBOUNCE_SECONDS", "5"))
+_CHATS_LOCK = threading.Lock()
+_CHATS_PENDING = {"data": None, "dirty": False, "since": 0.0}
+
+
+def _chats_flusher():
+    os.makedirs(CHATS_DIR, exist_ok=True)
+    while True:
+        time.sleep(_SAVE_DEBOUNCE_SECONDS)
+        with _CHATS_LOCK:
+            if not _CHATS_PENDING["dirty"]:
+                continue
+            data = _CHATS_PENDING["data"]
+            _CHATS_PENDING["dirty"] = False
+        try:
+            tmp = CHATS_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+            os.replace(tmp, CHATS_FILE)
+        except Exception as e:
+            sys.stderr.write(f"[chat_server] chat flush failed: {e}\n")
+
+
+def _warmup_engines():
+    try:
+        time.sleep(2)
+        payload = json.dumps({"messages": [{"role": "user", "content": "hi"}], "stream": False, "options": {"num_predict": 1}}).encode()
+        try:
+            req = urllib.request.Request(OLLAMA_HOST + "/api/tags", method="GET")
+            tags = json.loads(urllib.request.urlopen(req, timeout=3).read())
+            models = [m.get("model") or m.get("name") for m in tags.get("models", [])]
+            if models:
+                warm = json.dumps({"model": models[0], "messages": [{"role": "user", "content": "hi"}], "stream": False, "options": {"num_predict": 1}}).encode()
+                r = urllib.request.Request(OLLAMA_HOST + "/api/chat", data=warm, headers={"Content-Type": "application/json"}, method="POST")
+                urllib.request.urlopen(r, timeout=60).read()
+                sys.stderr.write(f"[chat_server] warmup: ollama {models[0]} ok\n")
+        except Exception as e:
+            sys.stderr.write(f"[chat_server] warmup: ollama skipped ({e})\n")
+        if LLAMACPP_HOST and LLAMACPP_MODEL_ID:
+            try:
+                warm = json.dumps({"model": LLAMACPP_MODEL_ID, "messages": [{"role": "user", "content": "hi"}], "stream": False, "max_tokens": 1}).encode()
+                r = urllib.request.Request(LLAMACPP_HOST + "/v1/chat/completions", data=warm, headers={"Content-Type": "application/json"}, method="POST")
+                urllib.request.urlopen(r, timeout=120).read()
+                sys.stderr.write(f"[chat_server] warmup: llama-server {LLAMACPP_MODEL_ID} ok\n")
+            except Exception as e:
+                sys.stderr.write(f"[chat_server] warmup: llama-server skipped ({e})\n")
+    except Exception as e:
+        sys.stderr.write(f"[chat_server] warmup thread crashed: {e}\n")
+
 
 # ── Pure-Python Hardware Stats (no psutil needed) ──────────────
 _cpu_times_last = None  # (idle, total) from previous sample
@@ -303,11 +352,16 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
 
     # ── Chat Persistence ───────────────────────────────────────
     def _get_chats(self):
-        try:
-            with open(CHATS_FILE, "r", encoding="utf-8") as f:
-                data = f.read()
-        except (FileNotFoundError, json.JSONDecodeError):
-            data = "[]"
+        with _CHATS_LOCK:
+            pending = _CHATS_PENDING["data"] if _CHATS_PENDING["dirty"] else None
+        if pending is not None:
+            data = json.dumps(pending, ensure_ascii=False, separators=(",", ":"))
+        else:
+            try:
+                with open(CHATS_FILE, "r", encoding="utf-8") as f:
+                    data = f.read()
+            except (FileNotFoundError, json.JSONDecodeError):
+                data = "[]"
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self._cors_headers()
@@ -319,18 +373,18 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         try:
             chats = json.loads(body)
-            with open(CHATS_FILE, "w", encoding="utf-8") as f:
-                json.dump(chats, f, ensure_ascii=False, indent=2)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self._cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps({"ok": True}).encode())
         except Exception as e:
-            self.send_response(500)
-            self._cors_headers()
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            self.send_response(500); self._cors_headers(); self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode()); return
+        with _CHATS_LOCK:
+            _CHATS_PENDING["data"] = chats
+            _CHATS_PENDING["dirty"] = True
+            _CHATS_PENDING["since"] = time.time()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self._cors_headers()
+        self.end_headers()
+        self.wfile.write(json.dumps({"ok": True}).encode())
 
     def _get_settings(self):
         try:
@@ -671,6 +725,10 @@ def main():
     print("-" * 55)
 
     server = ThreadedHTTPServer(("0.0.0.0", CHAT_SERVER_PORT), ChatHandler)
+
+    threading.Thread(target=_chats_flusher, daemon=True).start()
+    if "--no-warmup" not in sys.argv:
+        threading.Thread(target=_warmup_engines, daemon=True).start()
 
     # Open browser in background thread
     if "--no-browser" not in sys.argv:
