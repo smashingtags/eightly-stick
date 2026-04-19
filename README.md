@@ -1,20 +1,20 @@
-# Eight.ly Stick
+# Eight.ly Forge
 
-**Eight.ly Stick** is a zero-install, GPU-accelerated, portable AI environment. Plug it into any Windows, macOS, or Linux machine, double-click one file, and have an uncensored local LLM running on GPU in under a minute. Everything lives on the stick (or local drive); nothing is installed on the host, nothing leaves the machine.
+**Eight.ly Forge** is a zero-install, GPU-accelerated, portable AI environment. Plug it into any Windows, macOS, or Linux machine, double-click one file, and have an uncensored local LLM running on GPU in under a minute. Everything lives on the stick (or local drive); nothing is installed on the host, nothing leaves the machine.
 
 Part of the Eight.ly product family. Runs equally well from a USB 3.0 stick, an external SSD, or a folder on your primary drive.
 
 ## Sister product: Nova on Eight.ly OS
 
-The same catalog + engine architecture powers **Nova** — the AI assistant embedded in Eight.ly OS (the NAS operating system). Eight.ly Stick is the portable, ad-hoc variant for any host; Nova is the always-on, server-resident variant that shares persona and UX with NeuroHelper (iOS) and Eight.ly Professional. Both read the same catalog shape, both support the same engines, and both ship with the same hybrid Ollama + llama.cpp SYCL routing.
+The same catalog + engine architecture powers **Nova** — the AI assistant embedded in Eight.ly OS (the NAS operating system). Eight.ly Forge is the portable, ad-hoc variant for any host; Nova is the always-on, server-resident variant that shares persona and UX with NeuroHelper (iOS) and Eight.ly Professional. Both read the same catalog shape, both support the same engines, and both ship with the same hybrid Ollama + llama.cpp SYCL routing.
 
 - Stick URL: this repo (`smashingtags/USB-Uncensored-LLM`, branch `eightly-refactor`).
 - Nova URL: https://os-dev.eight.ly/nova (inside `smashingtags/eightly-os`).
 
-## Why Eight.ly Stick is different
+## Why Eight.ly Forge is different
 
 - **Real GPU acceleration.** Auto-detects Intel Arc, NVIDIA, AMD Radeon (incl. Strix Halo / Ryzen AI MAX iGPU), Apple Silicon, or CPU-only and pulls the right engine. On Intel Arc it uses Intel's IPEX-LLM Ollama (SYCL / Level Zero). On AMD it uses stock Ollama with ROCm, with a Vulkan llama.cpp sidecar for models Ollama's ROCm build doesn't yet support. Verified **4.86x speedup** on an Arc Pro B50 versus CPU (63 tok/s vs 13 tok/s on Gemma 2 2B).
-- **Verifies what it installs.** Old portable-LLM installers write model files and call it done. Eight.ly Stick calls `ollama create` and then checks the manifest is actually registered. If import fails, it tells you — it doesn't silently produce an empty registry.
+- **Verifies what it installs.** Old portable-LLM installers write model files and call it done. Eight.ly Forge calls `ollama create` and then checks the manifest is actually registered. If import fails, it tells you — it doesn't silently produce an empty registry.
 - **Port-isolated.** Runs the engine on `:11438` and the chat UI on `:3333`, so it never collides with an existing Ollama or WSL Ollama already on `:11434`.
 - **One file per platform.** Double-click `Windows\install.bat`, `Mac/install.command`, or `bash Linux/install.sh`. No prerequisites, no package manager.
 - **Diagnose button.** Every install ships a `diagnose` that prints your GPU, engine version, and runs a 100-token benchmark so you can *prove* acceleration is happening instead of hoping.
@@ -70,7 +70,7 @@ Gemma 4 routes through upstream **llama.cpp SYCL** on Intel Arc (auto-installed 
 ## Folder layout
 
 ```
-Eight.ly Stick/
+Eight.ly Forge/
 ├── Windows/      install.bat, start.bat, diagnose.bat, install-core.ps1, diagnose.ps1
 ├── Mac/          install.command, start.command
 ├── Linux/        install.sh, start.sh
@@ -102,11 +102,11 @@ Start it on your laptop, then on your phone hit `http://<laptop-ip>:3333`. The c
 - **Slow on Windows + Arc.** Run `Windows\diagnose.bat`. If throughput is under 25 tok/s on Gemma 2B, your Arc driver is probably stale — update from <https://intel.com/arc-drivers> and rerun.
 - **"Engine offline" in the UI footer.** The chat server can't reach `:11438`. Either `start.bat` hasn't finished booting the engine yet, or an old engine process is wedged — run `taskkill /f /im ollama.exe` and rerun start.
 - **Gemma 4 fails to load.** On Intel Arc you need the llama.cpp sidecar installed (automatic when you pick a Gemma 4 model in the installer) and listening on `:11441` — check `diagnose.bat` or `netstat -ano | findstr 11441`. On macOS make sure Ollama is v0.21+; older versions predate the MLX Gemma 4 runtime.
-- **Port conflict on :11434 or :3333.** Eight.ly Stick deliberately uses `:11438` for the engine to avoid your existing Ollama install. If you have another chat UI on `:3333`, edit `start.bat`'s `ELY_CHAT_PORT`.
+- **Port conflict on :11434 or :3333.** Eight.ly Forge deliberately uses `:11438` for the engine to avoid your existing Ollama install. If you have another chat UI on `:3333`, edit `start.bat`'s `ELY_CHAT_PORT`.
 
 ## Credits
 
-- Forked from `TechJarves/USB-Uncensored-LLM` and refactored into Eight.ly Stick.
+- Forked from `TechJarves/USB-Uncensored-LLM` and refactored into Eight.ly Forge.
 - Intel IPEX-LLM team for the SYCL Ollama build.
 - bartowski, Mungert, HauhauCS, TrevorJS for the GGUFs.
 - Ollama team for the engine and the v0.21 MLX Gemma 4 runtime.
@@ -117,4 +117,4 @@ MIT. See `LICENSE`.
 
 ---
 
-*Eight.ly Stick is uncompromising about computational freedom. The curated models are abliterated or aggressively uncensored — they won't moralize, lecture, or refuse. Use responsibly.*
+*Eight.ly Forge is uncompromising about computational freedom. The curated models are abliterated or aggressively uncensored — they won't moralize, lecture, or refuse. Use responsibly.*

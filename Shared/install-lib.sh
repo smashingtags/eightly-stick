@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eight.ly Stick - shared install/launch library (sourced, not executed).
+# Eight.ly Forge - shared install/launch library (sourced, not executed).
 # Works on both macOS (bash 3.2) and Linux (bash 4+). No associative arrays.
 #
 # Callers must set:

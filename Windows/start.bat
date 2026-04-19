@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title Eight.ly Stick
+title Eight.ly Forge
 
 REM Ports - override via env before launch if needed
 if not defined ELY_RUNTIME_PORT  set "ELY_RUNTIME_PORT=11438"
@@ -57,7 +57,7 @@ REM Apply backend-specific env vars from catalog.json
 for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command ^
     "$c = Get-Content -Raw '%SHARED%\catalog.json' | ConvertFrom-Json; $e = $c.backends.'%BACKEND%'.env; $e.PSObject.Properties | %% { 'set ' + $_.Name + '=' + $_.Value }"`) do (%%i)
 
-REM Eight.ly Stick uses ELY_RUNTIME_PORT (default :11438) so it never collides
+REM Eight.ly Forge uses ELY_RUNTIME_PORT (default :11438) so it never collides
 REM with a user's existing Ollama install (stock Ollama defaults to :11434,
 REM WSL often relays 11434).
 set "OLLAMA_MODELS=%SHARED%\models\ollama_data"
@@ -154,7 +154,7 @@ echo   Python: %PYTHON_CMD%
 
 echo.
 echo   ========================================================
-echo      Eight.ly Stick is running.
+echo      Eight.ly Forge is running.
 echo      Chat UI:  http://localhost:%ELY_CHAT_PORT%
 echo      Close this window to shut down.
 echo   ========================================================

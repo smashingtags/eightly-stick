@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eight.ly Stick - Linux installer (wrapper). Heavy lifting in Shared/install-lib.sh.
+# Eight.ly Forge - Linux installer (wrapper). Heavy lifting in Shared/install-lib.sh.
 # Detects NVIDIA CUDA, AMD ROCm (incl. Strix Halo / Ryzen AI MAX iGPU), and
 # falls back to CPU. Ollama's Linux tarball is unified — the same binary
 # auto-detects CUDA or ROCm based on the libraries present on the host.
@@ -22,7 +22,7 @@ command -v tar     >/dev/null 2>&1 || { echo "tar not found."; exit 1; }
 # shellcheck disable=SC1090
 source "$SHARED/install-lib.sh"
 
-ely_banner "Eight.ly Stick Setup (Linux)"
+ely_banner "Eight.ly Forge Setup (Linux)"
 
 # ---------- Platform detection (Linux-specific) ----------
 ely_step 1 "Detecting hardware"

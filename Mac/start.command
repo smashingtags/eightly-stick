@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eight.ly Stick - macOS launcher
+# Eight.ly Forge - macOS launcher
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")"
 ROOT="$(cd .. && pwd)"
@@ -81,7 +81,7 @@ trap cleanup EXIT INT TERM
 
 echo
 echo "  ========================================================"
-echo "     Eight.ly Stick is running."
+echo "     Eight.ly Forge is running."
 echo "     Chat UI:  http://localhost:3333"
 echo "     Close this Terminal window to shut down."
 echo "  ========================================================"

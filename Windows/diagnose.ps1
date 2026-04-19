@@ -1,4 +1,4 @@
-# Eight.ly Stick - diagnostic report
+# Eight.ly Forge - diagnostic report
 # Dumps system + GPU + engine info, runs a throughput benchmark so you can
 # prove GPU acceleration is actually happening (and not silently CPU-bound).
 
