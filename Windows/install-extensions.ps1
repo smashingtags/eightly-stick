@@ -57,7 +57,7 @@ if (Test-Path $VSCodeExe) {
     }
     Write-Host ""
 } else {
-    Write-Warn "VS Code Portable not found at $VSCodeDir — skipping extension install."
+    Write-Warn "VS Code Portable not found at $VSCodeDir  - skipping extension install."
     Write-Info "Run Setup_First_Time.bat and choose Y for VS Code to enable this."
 }
 
@@ -72,14 +72,14 @@ if ($NodeDir) {
     & $npm install --prefix $BinDir @openai/codex --no-audit --no-fund --loglevel=error 2>$null | Out-Null
     if (Test-Path (Join-Path $BinDir 'node_modules\@openai\codex')) { Write-Ok "Codex CLI" } else { Write-Warn "Codex CLI install failed" }
 
-    # Claude Code CLI (Anthropic) — the npm package, not the VS Code extension
+    # Claude Code CLI (Anthropic)  - the npm package, not the VS Code extension
     Write-Info "Installing Claude Code CLI (Anthropic)..."
     & $npm install --prefix $BinDir @anthropic-ai/claude-code --no-audit --no-fund --loglevel=error 2>$null | Out-Null
     if (Test-Path (Join-Path $BinDir 'node_modules\@anthropic-ai\claude-code')) { Write-Ok "Claude Code CLI" } else { Write-Warn "Claude Code CLI install failed" }
 
     Write-Host ""
 } else {
-    Write-Warn "Node.js not found — skipping CLI tool install."
+    Write-Warn "Node.js not found  - skipping CLI tool install."
 }
 
 # ── Aider (pip) ──────────────────────────────────────────────
@@ -105,7 +105,7 @@ if ($pipExe) {
     }
     Write-Host ""
 } else {
-    Write-Warn "pip not found — skipping Aider install."
+    Write-Warn "pip not found  - skipping Aider install."
     Write-Info "Install portable Python during setup to enable Aider."
 }
 
