@@ -76,6 +76,26 @@ if !SKIP_UPDATE!==1 (
 )
 echo.
 
+:: ─── Boot Local AI Engines (if installed) ─────────────────
+:: If install-core.ps1 has been run, Shared\install-state.json exists.
+:: Boot the GPU-accelerated Ollama + optional llama.cpp sidecar + chat UI
+:: so the user has both the terminal agent AND a browser chat at :3333.
+set "SHARED_DIR=%ROOT_DIR%Shared"
+set "LOCAL_STATE=%SHARED_DIR%\install-state.json"
+set "LOCAL_ENGINES_UP=0"
+if exist "%LOCAL_STATE%" (
+    echo   !CYAN![~] Booting local AI engines...!RESET!
+    :: Use our existing start.bat engine-boot logic by calling it.
+    :: start.bat boots Ollama on :11438, llama.cpp on :11441, chat_server on :3333.
+    :: We start it minimized so it doesn't steal the terminal.
+    start "Local AI Engines" /MIN cmd /c "%USB_ROOT%start.bat"
+    set "LOCAL_ENGINES_UP=1"
+    :: Give engines a moment to bind ports.
+    timeout /t 5 /nobreak >nul
+    echo   !GREEN![OK] Local engines starting (chat UI at http://localhost:3333)!RESET!
+    echo.
+)
+
 :: 4. Check for settings file
 if exist "%ENV_FILE%" (
     findstr /C:"AI_PROVIDER=" "%ENV_FILE%" >nul
@@ -385,13 +405,25 @@ goto finish_setup
 echo.
 echo   !CYAN!--- OLLAMA LOCAL SETUP ---!RESET!
 echo.
-set /p "USER_MODEL=  Enter local model !DIM!(Enter for llama3.2:3b)!RESET!: "
-if "%USER_MODEL%"=="" set "USER_MODEL=llama3.2:3b"
+:: If our local GPU-accelerated engine is installed, use it on :11438.
+:: Otherwise fall back to the stock Ollama on :11434.
+set "OLLAMA_PORT=11434"
+if exist "%LOCAL_STATE%" (
+    set "OLLAMA_PORT=11438"
+    echo   !GREEN![INFO] Using GPU-accelerated local engine on :11438!RESET!
+    :: List installed models from install-state.json
+    echo.
+    echo   !BOLD!Installed local models:!RESET!
+    powershell -NoProfile -Command "$s = ConvertFrom-Json (Get-Content -Raw '%LOCAL_STATE%'); foreach ($m in $s.installed) { Write-Host ('    - ' + $m.name + ' (' + $m.id + ')') }"
+    echo.
+)
+set /p "USER_MODEL=  Enter local model !DIM!(Enter for gemma2-2b)!RESET!: "
+if "%USER_MODEL%"=="" set "USER_MODEL=gemma2-2b"
 (
     echo AI_PROVIDER=ollama
     echo CLAUDE_CODE_USE_OPENAI=1
     echo OPENAI_API_KEY=ollama
-    echo OPENAI_BASE_URL=http://localhost:11434/v1
+    echo OPENAI_BASE_URL=http://localhost:!OLLAMA_PORT!/v1
     echo OPENAI_MODEL=%USER_MODEL%
     echo AI_DISPLAY_MODEL=%USER_MODEL%
 ) > "%ENV_FILE%"
@@ -473,6 +505,11 @@ echo.
 echo   !BOLD!Provider!RESET! : !GREEN!!PROVIDER_NAME!!RESET!
 echo   !BOLD!Model!RESET!    : !GREEN!!AI_DISPLAY_MODEL!!RESET!
 echo   !BOLD!Data!RESET!     : !DIM!Portable Mode (No PC Leaks)!RESET!
+if "!LOCAL_ENGINES_UP!"=="1" (
+    echo.
+    echo   !BOLD!Chat UI!RESET!  : !GREEN!http://localhost:3333!RESET!  !DIM!(uncensored local models)!RESET!
+    echo   !BOLD!Dashboard!RESET!: !GREEN!http://localhost:3000!RESET!  !DIM!(OpenClaude web UI)!RESET!
+)
 echo.
 echo !CYAN!=========================================================!RESET!
 echo.

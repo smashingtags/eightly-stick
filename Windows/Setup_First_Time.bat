@@ -229,6 +229,37 @@ if /I "!PACK_TOOLS!"=="Y" (
     echo.
 )
 
+:: ─── Step 6: Local AI Models (GPU-accelerated uncensored chat) ────
+echo.
+echo !CYAN!---------------------------------------------------------!RESET!
+echo   !BOLD!Local AI Setup (GPU-accelerated uncensored models)!RESET!
+echo !CYAN!---------------------------------------------------------!RESET!
+echo.
+echo   This installs a local GPU-accelerated AI engine (Ollama) and
+echo   curated uncensored models directly on the stick. These power
+echo   the chat UI at http://localhost:3333 - completely offline,
+echo   completely private.
+echo.
+:prompt_local
+set "INSTALL_LOCAL="
+set /p "INSTALL_LOCAL=  Install local AI models? (Y/N): "
+if defined INSTALL_LOCAL set "INSTALL_LOCAL=!INSTALL_LOCAL: =!"
+if /I "!INSTALL_LOCAL!"=="Y" (
+    echo.
+    echo   !CYAN![~] Running local model installer...!RESET!
+    echo.
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%USB_ROOT%install-core.ps1"
+    echo.
+) else if /I "!INSTALL_LOCAL!"=="N" (
+    echo.
+    echo   !DIM!Skipped local models. You can install them later by!RESET!
+    echo   !DIM!running Windows\install.bat or Setup_Local_Models.bat.!RESET!
+    echo.
+) else (
+    echo   !RED![ERROR] Please select Y or N.!RESET!
+    goto prompt_local
+)
+
 :: ─── Installation Summary ────────────────────────────────────
 
 :: Get installed OpenClaude version
