@@ -323,15 +323,11 @@ if /I "!INSTALL_VSCODE!"=="N" (
     echo   !DIM!Skipped VS Code. You can install it manually later.!RESET!
     echo.
 )
-:after_vscode_done else if /I "!INSTALL_VSCODE!"=="N" (
-    echo.
-    echo   !DIM!Skipped VS Code. You can install it manually later.!RESET!
-    echo.
-) else (
+if /I not "!INSTALL_VSCODE!"=="Y" if /I not "!INSTALL_VSCODE!"=="N" (
     echo   !RED![ERROR] Please select Y or N.!RESET!
     goto prompt_vscode
 )
-:skip_vscode
+:after_vscode_done
 
 :: ─── Step 8: Extensions + Coding CLIs ───────────────────────
 echo.
