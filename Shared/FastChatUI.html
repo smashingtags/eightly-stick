@@ -317,6 +317,7 @@
     transition: border-color .12s;
   }
   .composer-inner:focus-within { border-color: var(--border-strong); }
+  .composer-inner.drag-over { border-color: var(--accent, #ff8c1a); box-shadow: 0 0 0 2px rgba(255,140,26,0.18); }
   .composer textarea {
     background: transparent;
     border: 0;
@@ -445,11 +446,13 @@
     </section>
 
     <section class="composer">
-      <div class="composer-inner">
-        <textarea id="prompt" rows="1" placeholder="Message..." onkeydown="App.onKeydown(event)" oninput="App.autoresize(this)"></textarea>
+      <div class="composer-inner" id="composer-inner"
+           ondragover="App.onDragOver(event)" ondragleave="App.onDragLeave(event)" ondrop="App.onDrop(event)">
+        <textarea id="prompt" rows="1" placeholder="Message... (drop files to attach, /? for slash commands)"
+                  onkeydown="App.onKeydown(event)" oninput="App.autoresize(this)" onpaste="App.onPaste(event)"></textarea>
         <button class="send" id="send-btn" onclick="App.onSendOrStop()">&#9654;</button>
       </div>
-      <div class="composer-hint">Enter to send &middot; Shift+Enter for newline</div>
+      <div class="composer-hint">Enter to send &middot; Shift+Enter newline &middot; /? for commands &middot; drop files to attach</div>
     </section>
   </main>
 </div>
@@ -771,12 +774,148 @@ const App = (() => {
   function autoresize(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; }
   function onKeydown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSendOrStop(); } }
 
+  // ---------- File drop / paste → inline into prompt ----------
+  // Strategy: small text files get inlined directly; anything else goes
+  // through POST /api/extract (shells to pdftotext/pandoc/antiword on the
+  // server). Extracted text is prepended to the textarea, wrapped in a
+  // "--- filename ---" banner so the model knows which bytes came from
+  // which file.
+  const TEXTY_MAX_INLINE = 256 * 1024; // 256 KB
+  function looksTexty(f) {
+    return (f.type || '').startsWith('text/') ||
+           /\.(txt|md|markdown|csv|json|yaml|yml|log|py|js|mjs|ts|tsx|jsx|go|rs|c|cpp|h|hpp|java|kt|sh|bash|ps1|bat|html|css|xml|toml|ini|conf|env)$/i.test(f.name);
+  }
+  async function readAsText(f) {
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsText(f); });
+  }
+  async function extractViaServer(f) {
+    const fd = new FormData(); fd.append('file', f);
+    const r = await fetch('/api/extract', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('extract ' + r.status + ': ' + (await r.text()).slice(0, 200));
+    const j = await r.json();
+    return j.text || '';
+  }
+  async function ingestFiles(files) {
+    const ta = $('prompt');
+    for (const f of files) {
+      let text = '';
+      try {
+        if (looksTexty(f) && f.size <= TEXTY_MAX_INLINE) {
+          text = await readAsText(f);
+        } else {
+          text = await extractViaServer(f);
+        }
+      } catch (err) {
+        text = '[file ' + f.name + ' could not be read: ' + err.message + ']';
+      }
+      const header = '--- ' + f.name + (f.size ? ' (' + Math.round(f.size / 1024) + ' KB)' : '') + ' ---\n';
+      ta.value = (ta.value ? ta.value + '\n\n' : '') + header + (text || '').trim() + '\n';
+    }
+    autoresize(ta);
+    ta.focus();
+  }
+  function onDragOver(e) { e.preventDefault(); e.stopPropagation(); $('composer-inner').classList.add('drag-over'); }
+  function onDragLeave(e) { e.preventDefault(); e.stopPropagation(); $('composer-inner').classList.remove('drag-over'); }
+  async function onDrop(e) {
+    e.preventDefault(); e.stopPropagation();
+    $('composer-inner').classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer && e.dataTransfer.files || []);
+    if (files.length) await ingestFiles(files);
+  }
+  async function onPaste(e) {
+    const items = Array.from((e.clipboardData || {}).items || []);
+    const files = items.filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean);
+    if (files.length) {
+      e.preventDefault();
+      await ingestFiles(files);
+    }
+  }
+
   function onSendOrStop() { state.streaming ? stopStream() : sendMessage(); }
+
+  // Slash commands: intercepted client-side, never sent to the model.
+  // Return true if the command consumed the input (caller should skip send).
+  function handleSlash(text) {
+    if (!text.startsWith('/')) return false;
+    const [cmd, ...rest] = text.slice(1).split(/\s+/);
+    const arg = text.slice(cmd.length + 2).trim();
+    const chat = currentChat();
+    const lc = cmd.toLowerCase();
+    if (lc === 'help' || lc === '?') {
+      alert([
+        '/clear            Delete messages in current chat',
+        '/export           Download chat as markdown',
+        '/model <id>       Switch model for this chat (e.g. /model qwen2.5-coder-7b)',
+        '/code             Switch to the coder model if installed',
+        '/system <prompt>  Set system prompt for new chats (stored in settings)',
+        '/search <text>    Find messages across saved chats',
+        '/?                This help'
+      ].join('\n'));
+      return true;
+    }
+    if (lc === 'clear') {
+      if (chat) { chat.messages = []; _renderedChatId = null; _renderedCount = 0; renderMessages(); saveChats(); }
+      return true;
+    }
+    if (lc === 'export') {
+      if (!chat || chat.messages.length === 0) { alert('Nothing to export'); return true; }
+      const md = '# ' + (chat.title || 'chat') + '\n\n' +
+        chat.messages.map(m => '### ' + (m.role === 'user' ? 'You' : 'Assistant') + '\n\n' + (m.content || '')).join('\n\n---\n\n');
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = ((chat.title || 'chat').replace(/[^a-z0-9-_ ]/gi, '') || 'chat') + '.md';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      return true;
+    }
+    if (lc === 'model') {
+      if (!arg) { alert('Usage: /model <model-id>  (current: ' + (state.currentModel || 'none') + ')'); return true; }
+      const sel = $('model-select');
+      const opts = Array.from(sel.options).map(o => o.value);
+      const match = opts.find(v => v === arg || v.startsWith(arg));
+      if (!match) { alert('Model not installed: ' + arg + '\nInstalled: ' + opts.join(', ')); return true; }
+      sel.value = match; state.currentModel = match;
+      if (chat) { chat.model = match; renderChatList(); }
+      return true;
+    }
+    if (lc === 'code') {
+      const sel = $('model-select');
+      const opts = Array.from(sel.options).map(o => o.value);
+      const coder = opts.find(v => /coder|code/i.test(v)) || opts.find(v => /qwen.*coder|deepseek.*coder/i.test(v));
+      if (!coder) { alert('No coder model installed. Install qwen2.5-coder-7b or deepseek-coder-v2-lite.'); return true; }
+      sel.value = coder; state.currentModel = coder;
+      if (chat) { chat.model = coder; renderChatList(); }
+      return true;
+    }
+    if (lc === 'system') {
+      if (!arg) { alert('Usage: /system <prompt text>\nCurrent: ' + (state.settings.systemPrompt || '(default)')); return true; }
+      state.settings.systemPrompt = arg; saveSettings && saveSettings();
+      alert('System prompt updated for new chats.');
+      return true;
+    }
+    if (lc === 'search') {
+      if (!arg) { alert('Usage: /search <text>'); return true; }
+      const hits = [];
+      for (const c of state.chats) {
+        for (const m of c.messages) {
+          if (m.content && m.content.toLowerCase().includes(arg.toLowerCase())) {
+            hits.push('[' + (c.title || c.id) + '] ' + m.role + ': ' + m.content.slice(0, 120));
+          }
+        }
+      }
+      alert(hits.length === 0 ? 'No hits.' : hits.slice(0, 30).join('\n\n'));
+      return true;
+    }
+    alert('Unknown slash command: /' + cmd + '  (try /?)');
+    return true;
+  }
 
   async function sendMessage() {
     const ta = $('prompt');
     const text = ta.value.trim();
     if (!text || !state.currentModel) return;
+    // Slash commands — handled locally, never streamed to the model.
+    if (text.startsWith('/') && handleSlash(text)) { ta.value = ''; autoresize(ta); return; }
     const chat = currentChat();
     if (!chat) return;
     if (!chat.model) chat.model = state.currentModel;
@@ -877,7 +1016,7 @@ const App = (() => {
 
   init();
 
-  return { newChat, openChat, deleteChat, onModelChange, onKeydown, onSendOrStop, autoresize, openSettings, closeSettings, saveSettings, toggleSidebar };
+  return { newChat, openChat, deleteChat, onModelChange, onKeydown, onSendOrStop, autoresize, openSettings, closeSettings, saveSettings, toggleSidebar, onDragOver, onDragLeave, onDrop, onPaste };
 })();
 </script>
 </body>
