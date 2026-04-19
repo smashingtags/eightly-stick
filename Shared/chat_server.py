@@ -321,6 +321,10 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
         elif path == "/api/settings":
             self._save_settings()
 
+        # Document extraction for file drop / paste in the composer.
+        elif path == "/api/extract":
+            self._extract_document()
+
         # Proxy Ollama API
         elif path.startswith("/ollama/"):
             self._proxy_ollama("POST")
@@ -461,6 +465,122 @@ class ChatHandler(http.server.BaseHTTPRequestHandler):
             self._cors_headers()
             self.end_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+    # ── Document extract ───────────────────────────────────────
+    # POST /api/extract  multipart/form-data  field: "file"
+    # -> { name, mime, bytes, pageCount?, words?, text }
+    # Shells out per extension. If the extractor binary isn't present,
+    # returns a clear error the UI can surface (so the operator knows
+    # which apt/choco/brew package to install).
+    def _extract_document(self):
+        import tempfile, shutil, subprocess, re as _re
+        try:
+            ct = self.headers.get("Content-Type", "")
+            if "multipart/form-data" not in ct.lower():
+                self.send_response(400); self._cors_headers(); self.end_headers()
+                self.wfile.write(b"expected multipart/form-data"); return
+            boundary = None
+            for part in ct.split(";"):
+                part = part.strip()
+                if part.lower().startswith("boundary="):
+                    boundary = part.split("=", 1)[1].strip('"')
+            if not boundary:
+                self.send_response(400); self._cors_headers(); self.end_headers()
+                self.wfile.write(b"missing multipart boundary"); return
+            length = int(self.headers.get("Content-Length", 0))
+            if length <= 0 or length > 50 * 1024 * 1024:
+                self.send_response(413); self._cors_headers(); self.end_headers()
+                self.wfile.write(b"file too large (50 MB max)"); return
+            body = self.rfile.read(length)
+            # Minimal multipart parse: find the one file part named "file".
+            sep = b"--" + boundary.encode()
+            parts = body.split(sep)
+            filename = None; mime = ""; payload = b""
+            for p in parts:
+                if b"Content-Disposition" not in p:
+                    continue
+                header_block, _, data = p.partition(b"\r\n\r\n")
+                hdr = header_block.decode(errors="ignore")
+                m = _re.search(r'name="([^"]+)"', hdr)
+                fm = _re.search(r'filename="([^"]*)"', hdr)
+                if not m or m.group(1) != "file" or not fm:
+                    continue
+                filename = fm.group(1)
+                tm = _re.search(r'Content-Type:\s*([^\r\n]+)', hdr, _re.I)
+                if tm: mime = tm.group(1).strip()
+                # strip trailing \r\n before next boundary
+                if data.endswith(b"\r\n"): data = data[:-2]
+                payload = data
+                break
+            if not filename or not payload:
+                self.send_response(400); self._cors_headers(); self.end_headers()
+                self.wfile.write(b"no 'file' field in multipart body"); return
+
+            ext = os.path.splitext(filename)[1].lower()
+            tmpdir = tempfile.mkdtemp(prefix="forge-extract-")
+            tmp_path = os.path.join(tmpdir, os.path.basename(filename) or "upload.bin")
+            try:
+                with open(tmp_path, "wb") as f: f.write(payload)
+                text = ""; page_count = 0
+                if ext == ".pdf" or mime == "application/pdf":
+                    if shutil.which("pdftotext"):
+                        r = subprocess.run(["pdftotext", "-layout", "-nopgbrk", tmp_path, "-"],
+                                           capture_output=True, timeout=90)
+                        if r.returncode != 0:
+                            raise RuntimeError("pdftotext: " + r.stderr.decode(errors="ignore")[:400])
+                        text = r.stdout.decode(errors="ignore")
+                        if shutil.which("pdfinfo"):
+                            r2 = subprocess.run(["pdfinfo", tmp_path], capture_output=True, timeout=15)
+                            if r2.returncode == 0:
+                                for ln in r2.stdout.decode(errors="ignore").splitlines():
+                                    if ln.startswith("Pages:"):
+                                        try: page_count = int(ln.split(":", 1)[1].strip()); break
+                                        except: pass
+                    else:
+                        raise RuntimeError("pdftotext not installed (apt install poppler-utils / brew install poppler / choco install xpdf-utils)")
+                elif ext == ".docx" or mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                    if not shutil.which("pandoc"):
+                        raise RuntimeError("pandoc not installed (apt/brew/choco install pandoc)")
+                    r = subprocess.run(["pandoc", "-f", "docx", "-t", "plain", tmp_path],
+                                       capture_output=True, timeout=60)
+                    if r.returncode != 0:
+                        raise RuntimeError("pandoc: " + r.stderr.decode(errors="ignore")[:400])
+                    text = r.stdout.decode(errors="ignore")
+                elif ext == ".doc" or mime == "application/msword":
+                    if not shutil.which("antiword"):
+                        raise RuntimeError("antiword not installed (apt install antiword)")
+                    r = subprocess.run(["antiword", tmp_path], capture_output=True, timeout=60)
+                    if r.returncode != 0:
+                        raise RuntimeError("antiword: " + r.stderr.decode(errors="ignore")[:400])
+                    text = r.stdout.decode(errors="ignore")
+                elif ext == ".rtf" or mime in ("application/rtf", "text/rtf"):
+                    if not shutil.which("pandoc"):
+                        raise RuntimeError("pandoc not installed (apt/brew/choco install pandoc)")
+                    r = subprocess.run(["pandoc", "-f", "rtf", "-t", "plain", tmp_path],
+                                       capture_output=True, timeout=60)
+                    if r.returncode != 0:
+                        raise RuntimeError("pandoc: " + r.stderr.decode(errors="ignore")[:400])
+                    text = r.stdout.decode(errors="ignore")
+                else:
+                    # Plaintext family: read directly.
+                    with open(tmp_path, "rb") as f:
+                        raw = f.read()
+                    text = raw.decode("utf-8", errors="replace")
+                words = sum(1 for _ in _re.finditer(r"\S+", text))
+                out = {"name": filename, "mime": mime, "bytes": len(payload),
+                       "pageCount": page_count, "words": words, "text": text}
+                resp = json.dumps(out).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self._cors_headers(); self.end_headers()
+                self.wfile.write(resp)
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        except Exception as e:
+            self.send_response(415)
+            self.send_header("Content-Type", "text/plain")
+            self._cors_headers(); self.end_headers()
+            self.wfile.write(("extract failed: " + str(e)).encode())
 
     # ── Hardware Stats ─────────────────────────────────────────
     def _get_stats(self):

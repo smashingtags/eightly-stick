@@ -242,6 +242,46 @@
       "minRamGb": 16,
       "systemPrompt": "You are an uncensored and unbiased assistant. You always comply with the user request and answer all questions fully.",
       "params": { "temperature": 0.7, "top_p": 0.9 }
+    },
+    {
+      "id": "qwen2.5-coder-7b",
+      "name": "Qwen2.5-Coder 7B Instruct",
+      "file": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+      "sizeBytes": 4683073696,
+      "sizeLabel": "4.4 GB",
+      "quality": "STANDARD",
+      "badge": "code-gen - state of the art 7B coder",
+      "minRamGb": 10,
+      "systemPrompt": "You are Qwen, an expert coding assistant. Write correct, idiomatic code. Explain only when asked.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "deepseek-coder-v2-lite",
+      "name": "DeepSeek-Coder-V2 Lite Instruct (16B MoE)",
+      "file": "DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+      "url": "https://huggingface.co/bartowski/DeepSeek-Coder-V2-Lite-Instruct-GGUF/resolve/main/DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
+      "sizeBytes": 10364047168,
+      "sizeLabel": "10.4 GB",
+      "quality": "STANDARD",
+      "badge": "code-gen - 16B MoE (2.4B active), faster than dense 13B",
+      "minRamGb": 14,
+      "systemPrompt": "You are DeepSeek Coder, an expert programming assistant. Write clean, correct code with short explanations.",
+      "params": { "temperature": 0.2, "top_p": 0.95 }
+    },
+    {
+      "id": "nomic-embed-text",
+      "name": "Nomic Embed Text v1.5 (embeddings)",
+      "file": "nomic-embed-text-v1.5.Q8_0.gguf",
+      "url": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf",
+      "sizeBytes": 146501632,
+      "sizeLabel": "140 MB",
+      "quality": "STANDARD",
+      "badge": "embeddings - semantic search + RAG over chat history or workspace",
+      "minRamGb": 2,
+      "systemPrompt": "",
+      "params": { "temperature": 0.0, "top_p": 1.0 },
+      "capabilities": ["embedding"]
     }
   ]
 }
