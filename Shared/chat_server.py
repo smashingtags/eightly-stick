@@ -32,7 +32,7 @@ except ImportError:
     HAS_PSUTIL = False
 
 # Configuration
-# Eight.ly Stick runs Ollama on :11438 by default. For models whose architecture
+# Eight.ly Forge runs Ollama on :11438 by default. For models whose architecture
 # isn't in our Ollama build yet (Gemma 4 on Intel Arc), a secondary llama.cpp
 # server runs on :11441 and we route per-model.
 CHAT_SERVER_PORT    = int(os.environ.get("ELY_CHAT_PORT", "3333"))

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eight.ly Stick - macOS installer (wrapper). Platform-specific pieces here;
+# Eight.ly Forge - macOS installer (wrapper). Platform-specific pieces here;
 # heavy lifting lives in Shared/install-lib.sh.
 
 set -u
@@ -18,7 +18,7 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 not found. macOS 12.3+ shi
 # shellcheck disable=SC1090
 source "$SHARED/install-lib.sh"
 
-ely_banner "Eight.ly Stick Setup (macOS)"
+ely_banner "Eight.ly Forge Setup (macOS)"
 
 # ---------- Platform detection (Mac-specific) ----------
 ely_step 1 "Detecting hardware"

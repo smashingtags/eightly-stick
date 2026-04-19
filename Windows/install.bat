@@ -1,6 +1,6 @@
 @echo off
 setlocal
-title Eight.ly Stick - Setup
+title Eight.ly Forge - Setup
 
 cls
 echo.

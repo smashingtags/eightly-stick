@@ -1,4 +1,4 @@
-# Eight.ly Stick - Windows installer
+# Eight.ly Forge - Windows installer
 # Detects GPU, pulls the right Ollama backend, downloads models, verifies imports.
 
 $ErrorActionPreference = 'Continue'
