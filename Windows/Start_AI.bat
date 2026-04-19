@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 title Portable AI USB - Starting...
 
-:: Define ANSI Colors
+REM Define ANSI Colors
 for /F %%a in ('powershell -NoProfile -Command "[char]27"') do set "ESC=%%a"
 set "CYAN=!ESC![36m"
 set "GREEN=!ESC![32m"
@@ -19,7 +19,7 @@ set "DATA_DIR=%ROOT_DIR%data"
 set "ENV_FILE=%DATA_DIR%\ai_settings.env"
 set "NODE_DIR=%BIN_DIR%\node-v22.14.0-win-x64"
 
-:: 1. Force the portable AI to save logs/memory strictly to the USB
+REM 1. Force the portable AI to save logs/memory strictly to the USB
 set "CLAUDE_CONFIG_DIR=%DATA_DIR%\openclaude"
 set "XDG_CONFIG_HOME=%DATA_DIR%\config"
 set "XDG_DATA_HOME=%DATA_DIR%\app_data"
@@ -28,7 +28,7 @@ if not exist "%CLAUDE_CONFIG_DIR%" mkdir "%CLAUDE_CONFIG_DIR%"
 if not exist "%XDG_CONFIG_HOME%" mkdir "%XDG_CONFIG_HOME%"
 if not exist "%XDG_DATA_HOME%" mkdir "%XDG_DATA_HOME%"
 
-:: Display Banner
+REM Display Banner
 echo.
 echo !CYAN!    ____            __        __    __        ___    ____!RESET!
 echo !CYAN!   / __ \____  ____/ /_____ _/ /_  / /__     /   ^|  /  _/!RESET!
@@ -41,7 +41,7 @@ echo   !BOLD!Claude Code - Open Source Multi-Platform!RESET!
 echo !CYAN!=========================================================!RESET!
 echo.
 
-:: 2. Check if setup was run
+REM 2. Check if setup was run
 if not exist "%NODE_DIR%\node.exe" (
     echo   !RED![ERROR] The portable AI engine was not found!!RESET!
     echo   !YELLOW!Please run 'Setup_First_Time.bat' before starting.!RESET!
@@ -50,7 +50,7 @@ if not exist "%NODE_DIR%\node.exe" (
     exit /b
 )
 
-:: 3. Check for flags (--offline, --quick)
+REM 3. Check for flags (--offline, --quick)
 set "SKIP_UPDATE=0"
 set "QUICK_MODE=0"
 for %%A in (%*) do (
@@ -66,10 +66,10 @@ if not !SKIP_UPDATE!==1 (
 )
 echo.
 
-:: --------- Boot Local AI Engines (if installed) ---------------------------------------------------
-:: If install-core.ps1 has been run, Shared\install-state.json exists.
-:: Boot the GPU-accelerated Ollama + optional llama.cpp sidecar + chat UI
-:: so the user has both the terminal agent AND a browser chat at :3333.
+REM --------- Boot Local AI Engines (if installed) ---------------------------------------------------
+REM If install-core.ps1 has been run, Shared\install-state.json exists.
+REM Boot the GPU-accelerated Ollama + optional llama.cpp sidecar + chat UI
+REM so the user has both the terminal agent AND a browser chat at :3333.
 set "SHARED_DIR=%ROOT_DIR%Shared"
 set "LOCAL_STATE=%SHARED_DIR%\install-state.json"
 set "LOCAL_ENGINES_UP=0"
@@ -83,7 +83,7 @@ if exist "%LOCAL_STATE%" (
     echo.
 )
 
-:: 4. Check for settings file
+REM 4. Check for settings file
 if exist "%ENV_FILE%" (
     findstr /C:"AI_PROVIDER=" "%ENV_FILE%" >nul
     if errorlevel 1 (
@@ -94,9 +94,9 @@ if exist "%ENV_FILE%" (
     )
 )
 
-:: ---------------------------------------------------------
-::   PROVIDER SELECTION MENU
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   PROVIDER SELECTION MENU
+REM ---------------------------------------------------------
 echo !CYAN!=========================================================!RESET!
 echo   !BOLD!AI PROVIDER SELECTION!RESET!
 echo !CYAN!=========================================================!RESET!
@@ -121,9 +121,9 @@ if "!PROVIDER_SEL!"=="6" goto setup_nvidia
 echo   !RED![ERROR] Invalid selection. Please choose 1-6.!RESET!
 goto prompt_provider
 
-:: ---------------------------------------------------------
-::   OPENROUTER SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   OPENROUTER SETUP
+REM ---------------------------------------------------------
 :setup_openrouter
 echo.
 echo   !CYAN!--- OPENROUTER SETUP ---!RESET!
@@ -133,7 +133,7 @@ if "!USER_API_KEY!"=="" (
     echo   !RED![ERROR] API Key cannot be empty!!RESET!
     goto setup_openrouter
 )
-:: Mask key for display
+REM Mask key for display
 set "KEY_MASK=!USER_API_KEY:~0,6!****!USER_API_KEY:~-4!"
 echo   !DIM!Key: !KEY_MASK!!RESET!
 echo.
@@ -239,9 +239,9 @@ goto save_settings_openrouter
 ) > "%ENV_FILE%"
 goto finish_setup
 
-:: ---------------------------------------------------------
-::   NVIDIA NIM SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   NVIDIA NIM SETUP
+REM ---------------------------------------------------------
 :setup_nvidia
 echo.
 echo   !CYAN!--- NVIDIA NIM SETUP ---!RESET!
@@ -321,9 +321,9 @@ if "!USER_MODEL!"=="" (
 ) > "%ENV_FILE%"
 goto finish_setup
 
-:: ---------------------------------------------------------
-::   GEMINI SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   GEMINI SETUP
+REM ---------------------------------------------------------
 :setup_gemini
 echo.
 echo   !CYAN!--- GEMINI SETUP ---!RESET!
@@ -353,9 +353,9 @@ if "%USER_MODEL%"=="" set "USER_MODEL=gemini-2.0-pro-exp-02-05"
 ) > "%ENV_FILE%"
 goto finish_setup
 
-:: ---------------------------------------------------------
-::   CLAUDE SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   CLAUDE SETUP
+REM ---------------------------------------------------------
 :setup_claude
 echo.
 echo   !CYAN!--- CLAUDE SETUP ---!RESET!
@@ -385,20 +385,20 @@ if "%USER_MODEL%"=="" set "USER_MODEL=claude-3-7-sonnet-20250219"
 ) > "%ENV_FILE%"
 goto finish_setup
 
-:: ---------------------------------------------------------
-::   OLLAMA SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   OLLAMA SETUP
+REM ---------------------------------------------------------
 :setup_ollama
 echo.
 echo   !CYAN!--- OLLAMA LOCAL SETUP ---!RESET!
 echo.
-:: If our local GPU-accelerated engine is installed, use it on :11438.
-:: Otherwise fall back to the stock Ollama on :11434.
+REM If our local GPU-accelerated engine is installed, use it on :11438.
+REM Otherwise fall back to the stock Ollama on :11434.
 set "OLLAMA_PORT=11434"
 if exist "%LOCAL_STATE%" (
     set "OLLAMA_PORT=11438"
     echo   !GREEN![INFO] Using GPU-accelerated local engine on :11438!RESET!
-    :: List installed models from install-state.json
+    REM List installed models from install-state.json
     echo.
     echo   !BOLD!Installed local models:!RESET!
     powershell -NoProfile -Command "$s = ConvertFrom-Json (Get-Content -Raw '%LOCAL_STATE%'); foreach ($m in $s.installed) { Write-Host ('    - ' + $m.name + ' (' + $m.id + ')') }"
@@ -416,9 +416,9 @@ if "%USER_MODEL%"=="" set "USER_MODEL=gemma2-2b"
 ) > "%ENV_FILE%"
 goto finish_setup
 
-:: ---------------------------------------------------------
-::   OPENAI SETUP
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   OPENAI SETUP
+REM ---------------------------------------------------------
 :setup_openai
 echo.
 echo   !CYAN!--- OPENAI / CODEX SETUP ---!RESET!
@@ -456,11 +456,11 @@ echo.
 echo   !GREEN![OK] Settings saved!!RESET!
 echo.
 
-:: ---------------------------------------------------------
-::   LOAD SETTINGS + WELCOME BACK SCREEN
-:: ---------------------------------------------------------
+REM ---------------------------------------------------------
+REM   LOAD SETTINGS + WELCOME BACK SCREEN
+REM ---------------------------------------------------------
 :load_settings
-:: Load the settings from ai_settings.env
+REM Load the settings from ai_settings.env
 for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
     set "%%A=%%~B"
 )
@@ -469,7 +469,7 @@ if not "!AI_PROVIDER!"=="anthropic" (
     set "ANTHROPIC_API_KEY="
 )
 
-:: Friendly provider name
+REM Friendly provider name
 set "PROVIDER_NAME=!AI_PROVIDER!"
 if "!AI_PROVIDER!"=="openai" (
     if defined OPENAI_BASE_URL (
@@ -502,7 +502,7 @@ echo !CYAN!=========================================================!RESET!
 echo.
 
 :prompt_launch_mode
-:: Quick mode: skip menu, go straight to limitless
+REM Quick mode: skip menu, go straight to limitless
 if !QUICK_MODE!==1 (
     echo   !RED!!BOLD!QUICK LAUNCH - Limitless Mode!RESET!
     goto launch_limitless
