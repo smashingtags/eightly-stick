@@ -66,15 +66,15 @@ echo   !YELLOW![~] Checking for engine updates...!RESET!
 pushd "%BIN_DIR%"
 set "PATH=%NODE_DIR%;%PATH%"
 call npm.cmd outdated @gitlawb/openclaude >nul 2>&1
-if errorlevel 1 (
-    echo   !YELLOW![~] New version available. Upgrading...!RESET!
-    call npm.cmd install @gitlawb/openclaude@latest --no-audit --no-fund --loglevel=error >nul 2>&1
-    echo   !GREEN![OK] Engine upgraded!RESET!
-) else (
-    echo   !GREEN![OK] Engine is up to date!RESET!
-)
-popd
+if errorlevel 1 goto do_upgrade
+echo   !GREEN![OK] Engine is up to date!RESET!
+goto update_done
+:do_upgrade
+echo   !YELLOW![~] New version available. Upgrading...!RESET!
+call npm.cmd install @gitlawb/openclaude@latest --no-audit --no-fund --loglevel=error >nul 2>&1
+echo   !GREEN![OK] Engine upgraded!RESET!
 :update_done
+popd
 echo.
 
 :: ─── Boot Local AI Engines (if installed) ─────────────────
