@@ -108,17 +108,16 @@ echo.
 echo   Starting secondary engine ^(llama-server SYCL^) on :%ELY_LLAMACPP_PORT%
 echo     model: !LLAMACPP_MODEL_ID!
 pushd "!LLAMACPP_DIR!"
-REM llama-server flags tuned for Intel Arc Pro B50 (16 GB VRAM):
-REM   --flash-attn on           : fused attention kernels, ~30%% faster + less VRAM
-REM   --cache-type-k/v q8_0     : quantize KV cache so we can fit the bigger ctx
+REM llama-server flags for Intel Arc Pro B50 (16 GB VRAM):
 REM   --ctx-size 16384          : 4x the prior 4096 ceiling; long reasoning chains fit
-REM   --parallel 4              : allow 4 concurrent slots (warms workers, improves throughput)
-REM   --batch-size 256 --ubatch-size 32 : optimal batching for Arc Xe-cores
-REM   --threads 8 --threads-http 4 : split inference from the HTTP path
+REM   --flash-attn on           : fused attention kernels on SYCL backend
 REM   --jinja --reasoning-format none : preserve <think> tags inline so the UI collapses them
-REM Flags kept on a single line because `^` continuation inside `start ""` with
-REM delayed expansion has bitten us before.
-start "" /b "!LLAMACPP_DIR!\llama-server.exe" -m "!LLAMACPP_GGUF!" -ngl 999 --host 127.0.0.1 --port %ELY_LLAMACPP_PORT% --ctx-size 16384 --batch-size 256 --ubatch-size 32 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 4 --threads 8 --threads-http 4 --jinja --reasoning-format none
+REM Bench note (2026-04-19): the "more flags = more speed" assumption is wrong
+REM on Arc SYCL. Benchmarking single-user reasoning, adding --parallel 4 +
+REM --cache-type-k/v q8_0 + --threads 8 --threads-http 4 + --batch-size 256
+REM --ubatch-size 32 made Gemma 4 E2B ~17%% SLOWER (12.3s vs 10.2s baseline).
+REM Kept only ctx-size + flash-attn + defaults.
+start "" /b "!LLAMACPP_DIR!\llama-server.exe" -m "!LLAMACPP_GGUF!" -ngl 999 --host 127.0.0.1 --port %ELY_LLAMACPP_PORT% --ctx-size 16384 --flash-attn on --jinja --reasoning-format none
 popd
 set /a WAIT2=0
 :WAIT_LLAMACPP
